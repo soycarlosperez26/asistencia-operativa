@@ -39,9 +39,9 @@ export function WorkersClient({ workers }: { workers: Worker[] }) {
         <form
           key={formKey}
           action={formAction}
-          className="flex flex-wrap items-end gap-3"
+          className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
         >
-          <div className="min-w-[200px] flex-1">
+          <div className="sm:min-w-[200px] sm:flex-1">
             <label className="mb-1 block text-sm font-medium text-neutral-700">
               Nombre completo
             </label>
@@ -51,7 +51,7 @@ export function WorkersClient({ workers }: { workers: Worker[] }) {
               className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
             />
           </div>
-          <div className="min-w-[160px] flex-1">
+          <div className="sm:min-w-[160px] sm:flex-1">
             <label className="mb-1 block text-sm font-medium text-neutral-700">
               Documento
             </label>
@@ -64,7 +64,7 @@ export function WorkersClient({ workers }: { workers: Worker[] }) {
           <button
             type="submit"
             disabled={pending}
-            className="rounded-lg bg-brand-dark px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand disabled:opacity-60"
+            className="w-full rounded-lg bg-brand-dark px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand disabled:opacity-60 sm:w-auto"
           >
             {pending ? "Creando..." : "Crear y generar QR"}
           </button>
@@ -88,7 +88,7 @@ export function WorkersClient({ workers }: { workers: Worker[] }) {
             {workers.map((worker) => (
               <li
                 key={worker.id}
-                className="flex flex-wrap items-center justify-between gap-3 py-3"
+                className="flex flex-col gap-3 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
               >
                 <div>
                   <p className="font-semibold text-neutral-900">
@@ -106,7 +106,7 @@ export function WorkersClient({ workers }: { workers: Worker[] }) {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setQrWorker(worker)}
-                    className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                    className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 sm:flex-none"
                   >
                     Ver carnet QR
                   </button>
@@ -115,7 +115,7 @@ export function WorkersClient({ workers }: { workers: Worker[] }) {
                       await toggleWorkerActive(worker.id, !worker.active);
                       router.refresh();
                     }}
-                    className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                    className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 sm:flex-none"
                   >
                     {worker.active ? "Desactivar" : "Activar"}
                   </button>

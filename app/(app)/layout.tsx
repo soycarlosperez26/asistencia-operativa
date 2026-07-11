@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { COMPANY_NAME } from "@/lib/config";
+import { Logo } from "@/components/Logo";
 import { NavLinks } from "./NavLinks";
 import { SignOutButton } from "./SignOutButton";
+import { MobileNav } from "./MobileNav";
 
 export default async function AppLayout({
   children,
@@ -19,19 +21,20 @@ export default async function AppLayout({
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand text-sm font-bold text-white">
-              {COMPANY_NAME.slice(0, 1).toUpperCase()}
-            </div>
-            <span className="hidden text-sm font-semibold text-neutral-800 sm:block">
+          <div className="flex min-w-0 items-center gap-3">
+            <MobileNav profile={profile} />
+            <Logo className="h-9 w-9 shrink-0 object-contain" />
+            <span className="hidden truncate text-sm font-semibold text-neutral-800 sm:block">
               {COMPANY_NAME}
             </span>
           </div>
 
-          <NavLinks role={profile.role} />
+          <div className="hidden md:flex">
+            <NavLinks role={profile.role} />
+          </div>
 
-          <div className="flex items-center gap-3">
-            <div className="hidden text-right sm:block">
+          <div className="hidden items-center gap-3 md:flex">
+            <div className="text-right">
               <p className="text-sm font-medium text-neutral-800">
                 {profile.full_name}
               </p>
@@ -44,7 +47,7 @@ export default async function AppLayout({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6">
         {children}
       </main>
     </div>

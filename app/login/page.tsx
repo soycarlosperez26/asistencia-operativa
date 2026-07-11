@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { signIn, type LoginState } from "./actions";
-import { COMPANY_NAME } from "@/lib/config";
+import { Logo } from "@/components/Logo";
 
 const initialState: LoginState = {};
 
@@ -12,9 +12,7 @@ export default function LoginPage() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm text-center">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand text-2xl font-bold text-white">
-          {COMPANY_NAME.slice(0, 1).toUpperCase()}
-        </div>
+        <Logo className="mx-auto mb-4 h-24 w-24 object-contain" />
         <h1 className="text-2xl font-bold text-neutral-900">Bienvenido</h1>
         <p className="mt-1 text-sm text-neutral-500">
           Inicia sesión para continuar

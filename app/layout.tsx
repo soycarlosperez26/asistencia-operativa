@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { APP_NAME } from "@/lib/config";
+import { APP_NAME, COMPANY_LOGO } from "@/lib/config";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: APP_NAME,
   description: "Registro de entrada y salida de trabajadores por proyecto.",
+  icons: { icon: COMPANY_LOGO },
 };
 
 export default function RootLayout({

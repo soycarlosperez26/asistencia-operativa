@@ -36,6 +36,7 @@ export interface AttendanceRecord {
   gps_lat: number | null;
   gps_lng: number | null;
   gps_accuracy: number | null;
+  observations: string | null;
 }
 
 export interface AttendanceRecordWithRelations extends AttendanceRecord {

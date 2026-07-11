@@ -34,13 +34,20 @@ function writeCache(reading: GpsReading) {
   }
 }
 
-/** Captura y cachea el GPS por GPS_CACHE_MINUTES, como respaldo informativo. */
-export function useGps() {
-  const [reading, setReading] = useState<GpsReading | null>(() => readCache());
+/**
+ * Captura y cachea el GPS por GPS_CACHE_MINUTES, como respaldo informativo.
+ * Con `enabled: false` no lee caché ni pide permiso de geolocalización
+ * (usado para ocultar el GPS mientras es una funcionalidad premium).
+ */
+export function useGps(enabled: boolean = true) {
+  const [reading, setReading] = useState<GpsReading | null>(() =>
+    enabled ? readCache() : null
+  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(() => {
+    if (!enabled) return;
     if (!("geolocation" in navigator)) {
       setError("Este dispositivo no soporta geolocalización.");
       return;
@@ -65,15 +72,15 @@ export function useGps() {
       },
       { enableHighAccuracy: true, timeout: 10_000 }
     );
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
-    if (!reading) {
+    if (enabled && !reading) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- captura GPS al montar cuando no hay caché válida.
       refresh();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [enabled]);
 
   return { reading, error, loading, refresh };
 }

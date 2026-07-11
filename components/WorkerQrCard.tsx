@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
-import { COMPANY_NAME } from "@/lib/config";
+import { Logo } from "@/components/Logo";
 import type { Worker } from "@/lib/types";
 
 interface WorkerQrCardProps {
@@ -34,9 +34,7 @@ export function WorkerQrCard({ worker, onClose }: WorkerQrCardProps) {
         ref={cardRef}
         className="w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-xl print:shadow-none"
       >
-        <p className="text-xs font-semibold uppercase tracking-wide text-brand-dark">
-          {COMPANY_NAME}
-        </p>
+        <Logo className="mx-auto h-14 w-14 object-contain" />
         <p className="mt-3 text-base font-bold text-neutral-900">
           {worker.full_name}
         </p>

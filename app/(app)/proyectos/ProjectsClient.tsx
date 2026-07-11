@@ -40,25 +40,29 @@ export function ProjectsClient({
         <h2 className="mb-4 text-lg font-bold text-neutral-900">
           Nuevo proyecto
         </h2>
-        <form key={formKey} action={formAction} className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[160px] flex-1">
+        <form
+          key={formKey}
+          action={formAction}
+          className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
+        >
+          <div className="sm:min-w-[160px] sm:flex-1">
             <label className="mb-1 block text-sm font-medium text-neutral-700">
               Código
             </label>
             <input
               name="code"
-              placeholder="P26001-TEBSA"
+              placeholder="P001-OBRA"
               required
               className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
             />
           </div>
-          <div className="min-w-[220px] flex-1">
+          <div className="sm:min-w-[220px] sm:flex-1">
             <label className="mb-1 block text-sm font-medium text-neutral-700">
               Nombre
             </label>
             <input
               name="name"
-              placeholder="TEBSA PATIO 220KV - TERMOBARRANQUILLA"
+              placeholder="Nombre de la obra o proyecto"
               required
               className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
             />
@@ -66,7 +70,7 @@ export function ProjectsClient({
           <button
             type="submit"
             disabled={pending}
-            className="rounded-lg bg-brand-dark px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand disabled:opacity-60"
+            className="w-full rounded-lg bg-brand-dark px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand disabled:opacity-60 sm:w-auto"
           >
             {pending ? "Creando..." : "Crear proyecto"}
           </button>
@@ -91,7 +95,7 @@ export function ProjectsClient({
               const supervisors = supervisorsByProject[project.id] ?? [];
               return (
                 <li key={project.id} className="py-3">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                     <div>
                       <p className="font-semibold text-neutral-900">
                         {project.code} - {project.name}
@@ -113,7 +117,7 @@ export function ProjectsClient({
                     <div className="flex gap-2">
                       <button
                         onClick={() => setSupervisorProject(project)}
-                        className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                        className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 sm:flex-none"
                       >
                         Agregar supervisor
                       </button>
@@ -122,7 +126,7 @@ export function ProjectsClient({
                           await toggleProjectActive(project.id, !project.active);
                           router.refresh();
                         }}
-                        className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                        className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 sm:flex-none"
                       >
                         {project.active ? "Desactivar" : "Activar"}
                       </button>

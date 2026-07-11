@@ -73,7 +73,7 @@ export default async function AsistenciaPage({
   const { data: todayRecords } = await supabase
     .from("attendance_records")
     .select(
-      "id, worker_id, project_id, supervisor_id, type, recorded_at, gps_lat, gps_lng, gps_accuracy, worker:workers(id, full_name, document_id), project:projects(id, code, name), supervisor:profiles(id, full_name)"
+      "id, worker_id, project_id, supervisor_id, type, recorded_at, gps_lat, gps_lng, gps_accuracy, observations, worker:workers(id, full_name, document_id), project:projects(id, code, name), supervisor:profiles(id, full_name)"
     )
     .eq("project_id", project.id)
     .gte("recorded_at", startOfTodayISO())

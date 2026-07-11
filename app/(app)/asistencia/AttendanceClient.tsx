@@ -5,15 +5,22 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useGps } from "@/lib/useGps";
 import { computePresentCount } from "@/lib/attendance";
+import { GPS_ENABLED } from "@/lib/config";
 import { QrScannerModal } from "@/components/QrScannerModal";
 import type { AttendanceRecordWithRelations, Project } from "@/lib/types";
-import { registerAttendance } from "./actions";
+import { lookupWorkerByQr, registerAttendance } from "./actions";
+import { ObservationsModal } from "./ObservationsModal";
 
 interface AttendanceClientProps {
   project: Project;
   isAdmin: boolean;
   projects: Project[];
   initialRecords: AttendanceRecordWithRelations[];
+}
+
+interface PendingScan {
+  qrToken: string;
+  workerName: string;
 }
 
 export function AttendanceClient({
@@ -26,11 +33,12 @@ export function AttendanceClient({
   const [records, setRecords] = useState(initialRecords);
   const [prevInitialRecords, setPrevInitialRecords] = useState(initialRecords);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [pendingScan, setPendingScan] = useState<PendingScan | null>(null);
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState<
     { type: "success" | "error"; message: string } | null
   >(null);
-  const gps = useGps();
+  const gps = useGps(GPS_ENABLED);
 
   if (initialRecords !== prevInitialRecords) {
     setPrevInitialRecords(initialRecords);
@@ -67,15 +75,35 @@ export function AttendanceClient({
     setPending(true);
     setFeedback(null);
 
+    const result = await lookupWorkerByQr(qrToken);
+
+    setPending(false);
+
+    if (result.error || !result.worker) {
+      setFeedback({ type: "error", message: result.error ?? "Error desconocido." });
+      return;
+    }
+
+    setPendingScan({ qrToken, workerName: result.worker.full_name });
+  }
+
+  async function handleConfirmObservations(observations: string) {
+    if (!pendingScan) return;
+    setPending(true);
+    setFeedback(null);
+
     const result = await registerAttendance({
-      qrToken,
+      qrToken: pendingScan.qrToken,
       projectId: project.id,
-      gps: gps.reading
-        ? { lat: gps.reading.lat, lng: gps.reading.lng, accuracy: gps.reading.accuracy }
-        : null,
+      gps:
+        GPS_ENABLED && gps.reading
+          ? { lat: gps.reading.lat, lng: gps.reading.lng, accuracy: gps.reading.accuracy }
+          : null,
+      observations: observations.trim() || null,
     });
 
     setPending(false);
+    setPendingScan(null);
 
     if (result.error || !result.data) {
       setFeedback({ type: "error", message: result.error ?? "Error desconocido." });
@@ -105,7 +133,7 @@ export function AttendanceClient({
         <button
           onClick={() => setScannerOpen(true)}
           disabled={pending}
-          className="rounded-lg bg-brand-dark px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand disabled:opacity-60"
+          className="w-full rounded-lg bg-brand-dark px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand disabled:opacity-60 sm:w-auto"
         >
           {pending ? "Registrando..." : "Registrar Asistencia"}
         </button>
@@ -149,30 +177,6 @@ export function AttendanceClient({
           </div>
         )}
 
-        <div className="mt-4 rounded-xl bg-brand-light px-4 py-3">
-          {gps.reading ? (
-            <>
-              <p className="text-sm font-semibold text-brand-dark">
-                Ubicación GPS activa
-              </p>
-              <p className="mt-0.5 text-xs text-neutral-600">
-                {gps.reading.lat.toFixed(6)}, {gps.reading.lng.toFixed(6)} (±
-                {Math.round(gps.reading.accuracy)}m de precisión)
-              </p>
-            </>
-          ) : (
-            <p className="text-sm text-neutral-600">
-              {gps.loading ? "Obteniendo ubicación..." : gps.error ?? "Ubicación no disponible."}
-            </p>
-          )}
-          <button
-            onClick={gps.refresh}
-            className="mt-1 text-xs font-medium text-brand-dark underline underline-offset-2"
-          >
-            Ver ubicación
-          </button>
-        </div>
-
         <div className="mt-6">
           <p className="flex items-center gap-2 text-sm font-medium text-neutral-700">
             Empleados Presentes
@@ -212,6 +216,11 @@ export function AttendanceClient({
                   · Doc: {record.worker.document_id} · {record.project.code} · Por:{" "}
                   {record.supervisor.full_name}
                 </p>
+                {record.observations && (
+                  <p className="mt-1 rounded-lg bg-white px-2.5 py-1.5 text-xs text-neutral-600">
+                    {record.observations}
+                  </p>
+                )}
                 <p className="mt-0.5 text-xs text-neutral-400">
                   {new Date(record.recorded_at).toLocaleString("es-CO")}
                 </p>
@@ -225,6 +234,15 @@ export function AttendanceClient({
         <QrScannerModal
           onScan={handleScan}
           onClose={() => setScannerOpen(false)}
+        />
+      )}
+
+      {pendingScan && (
+        <ObservationsModal
+          workerName={pendingScan.workerName}
+          pending={pending}
+          onConfirm={handleConfirmObservations}
+          onCancel={() => setPendingScan(null)}
         />
       )}
     </div>

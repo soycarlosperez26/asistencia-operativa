@@ -1,0 +1,232 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { useGps } from "@/lib/useGps";
+import { computePresentCount } from "@/lib/attendance";
+import { QrScannerModal } from "@/components/QrScannerModal";
+import type { AttendanceRecordWithRelations, Project } from "@/lib/types";
+import { registerAttendance } from "./actions";
+
+interface AttendanceClientProps {
+  project: Project;
+  isAdmin: boolean;
+  projects: Project[];
+  initialRecords: AttendanceRecordWithRelations[];
+}
+
+export function AttendanceClient({
+  project,
+  isAdmin,
+  projects,
+  initialRecords,
+}: AttendanceClientProps) {
+  const router = useRouter();
+  const [records, setRecords] = useState(initialRecords);
+  const [prevInitialRecords, setPrevInitialRecords] = useState(initialRecords);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [feedback, setFeedback] = useState<
+    { type: "success" | "error"; message: string } | null
+  >(null);
+  const gps = useGps();
+
+  if (initialRecords !== prevInitialRecords) {
+    setPrevInitialRecords(initialRecords);
+    setRecords(initialRecords);
+  }
+
+  useEffect(() => {
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`attendance-${project.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "attendance_records",
+          filter: `project_id=eq.${project.id}`,
+        },
+        async () => {
+          router.refresh();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [project.id, router]);
+
+  const presentCount = useMemo(() => computePresentCount(records), [records]);
+
+  async function handleScan(qrToken: string) {
+    setScannerOpen(false);
+    setPending(true);
+    setFeedback(null);
+
+    const result = await registerAttendance({
+      qrToken,
+      projectId: project.id,
+      gps: gps.reading
+        ? { lat: gps.reading.lat, lng: gps.reading.lng, accuracy: gps.reading.accuracy }
+        : null,
+    });
+
+    setPending(false);
+
+    if (result.error || !result.data) {
+      setFeedback({ type: "error", message: result.error ?? "Error desconocido." });
+      return;
+    }
+
+    setRecords((prev) => {
+      if (prev.some((r) => r.id === result.data!.id)) return prev;
+      return [result.data!, ...prev];
+    });
+    setFeedback({
+      type: "success",
+      message: `${result.data.type === "entrada" ? "Entrada" : "Salida"} registrada para ${result.data.worker.full_name}.`,
+    });
+    router.refresh();
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">Asistencia</h1>
+          <p className="text-sm text-neutral-500">
+            Gestiona la asistencia de empleados
+          </p>
+        </div>
+        <button
+          onClick={() => setScannerOpen(true)}
+          disabled={pending}
+          className="rounded-lg bg-brand-dark px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand disabled:opacity-60"
+        >
+          {pending ? "Registrando..." : "Registrar Asistencia"}
+        </button>
+      </div>
+
+      {feedback && (
+        <p
+          className={`rounded-lg px-4 py-2.5 text-sm ${
+            feedback.type === "success"
+              ? "bg-brand-light text-brand-dark"
+              : "bg-red-50 text-red-700"
+          }`}
+        >
+          {feedback.message}
+        </p>
+      )}
+
+      <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <h2 className="mb-4 text-lg font-bold text-neutral-900">
+          Configuración de registro
+        </h2>
+
+        <label className="mb-1 block text-sm font-medium text-neutral-700">
+          Proyecto {isAdmin && <span className="text-red-500">*</span>}
+        </label>
+        {isAdmin ? (
+          <select
+            value={project.id}
+            onChange={(e) => router.push(`/asistencia?project=${e.target.value}`)}
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm text-neutral-900 outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          >
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.code} - {p.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-800">
+            {project.code} - {project.name}
+          </div>
+        )}
+
+        <div className="mt-4 rounded-xl bg-brand-light px-4 py-3">
+          {gps.reading ? (
+            <>
+              <p className="text-sm font-semibold text-brand-dark">
+                Ubicación GPS activa
+              </p>
+              <p className="mt-0.5 text-xs text-neutral-600">
+                {gps.reading.lat.toFixed(6)}, {gps.reading.lng.toFixed(6)} (±
+                {Math.round(gps.reading.accuracy)}m de precisión)
+              </p>
+            </>
+          ) : (
+            <p className="text-sm text-neutral-600">
+              {gps.loading ? "Obteniendo ubicación..." : gps.error ?? "Ubicación no disponible."}
+            </p>
+          )}
+          <button
+            onClick={gps.refresh}
+            className="mt-1 text-xs font-medium text-brand-dark underline underline-offset-2"
+          >
+            Ver ubicación
+          </button>
+        </div>
+
+        <div className="mt-6">
+          <p className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+            Empleados Presentes
+          </p>
+          <p className="mt-1 text-3xl font-bold text-brand-dark">{presentCount}</p>
+          <p className="text-xs text-neutral-500">ingresos de hoy</p>
+        </div>
+      </div>
+
+      <div className="rounded-2xl bg-white p-5 shadow-sm">
+        <h2 className="mb-4 text-lg font-bold text-neutral-900">
+          Actividad Reciente (Hoy)
+        </h2>
+
+        {records.length === 0 ? (
+          <p className="text-sm text-neutral-500">
+            Todavía no hay registros de asistencia hoy.
+          </p>
+        ) : (
+          <ul className="space-y-3">
+            {records.slice(0, 20).map((record) => (
+              <li
+                key={record.id}
+                className="rounded-xl bg-neutral-50 px-4 py-3 text-sm"
+              >
+                <p className="font-semibold text-neutral-900">
+                  {record.worker.full_name}
+                </p>
+                <p className="mt-0.5 text-neutral-500">
+                  <span
+                    className={`font-semibold ${
+                      record.type === "entrada" ? "text-brand-dark" : "text-orange-600"
+                    }`}
+                  >
+                    {record.type.toUpperCase()}
+                  </span>{" "}
+                  · Doc: {record.worker.document_id} · {record.project.code} · Por:{" "}
+                  {record.supervisor.full_name}
+                </p>
+                <p className="mt-0.5 text-xs text-neutral-400">
+                  {new Date(record.recorded_at).toLocaleString("es-CO")}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {scannerOpen && (
+        <QrScannerModal
+          onScan={handleScan}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
+    </div>
+  );
+}

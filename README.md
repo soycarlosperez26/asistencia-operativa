@@ -58,6 +58,21 @@ Abre [http://localhost:3000](http://localhost:3000).
 > La cámara para escanear QR requiere HTTPS o `localhost` — en local funciona
 > directo; en producción, Vercel sirve HTTPS automáticamente.
 
+## 3.1 Sembrar datos de prueba (opcional)
+
+Para probar Asistencia y Reportes sin cargar todo a mano, hay un script que
+crea ~10 trabajadores mock y ~50 registros de entrada/salida repartidos en
+los últimos días hábiles (incluye casos de horas extra y de "Sin
+Marcación"). Requiere que ya exista al menos un admin (paso 2):
+
+```bash
+npm run seed:mock
+```
+
+Solo toca datos identificables como mock (nunca borra trabajadores o
+proyectos reales). Para regenerar los registros de asistencia mock desde
+cero: `node scripts/seed-mock-data.mjs --reset`.
+
 ## 4. Deploy
 
 Conecta el repo a [Vercel](https://vercel.com/new) y configura las mismas

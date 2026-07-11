@@ -15,6 +15,7 @@ export function NavLinks({ role, vertical = false, onNavigate }: NavLinksProps) 
 
   const links = [
     { href: "/asistencia", label: "Asistencia" },
+    { href: "/reportes", label: "Reportes" },
     ...(role === "admin"
       ? [
           { href: "/trabajadores", label: "Trabajadores" },

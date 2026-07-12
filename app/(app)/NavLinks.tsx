@@ -20,6 +20,7 @@ export function NavLinks({ role, vertical = false, onNavigate }: NavLinksProps) 
       ? [
           { href: "/trabajadores", label: "Trabajadores" },
           { href: "/proyectos", label: "Proyectos" },
+          { href: "/control", label: "Control" },
         ]
       : []),
   ];

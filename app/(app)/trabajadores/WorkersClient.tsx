@@ -4,14 +4,31 @@ import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Worker } from "@/lib/types";
 import { WorkerQrCard } from "@/components/WorkerQrCard";
-import { createWorker, toggleWorkerActive, type WorkerFormState } from "./actions";
+import {
+  createWorker,
+  toggleWorkerActive,
+  updateWorkerSalary,
+  type WorkerFormState,
+} from "./actions";
 
 const initialState: WorkerFormState = {};
+
+function formatSalary(value: number | null): string {
+  if (value == null) return "Sin salario cargado";
+  return value.toLocaleString("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  });
+}
 
 export function WorkersClient({ workers }: { workers: Worker[] }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(createWorker, initialState);
   const [qrWorker, setQrWorker] = useState<Worker | null>(null);
+  const [salaryEditorId, setSalaryEditorId] = useState<string | null>(null);
+  const [salaryDraft, setSalaryDraft] = useState("");
+  const [savingSalary, setSavingSalary] = useState(false);
   const [formKey, setFormKey] = useState(0);
   const [prevState, setPrevState] = useState(state);
 
@@ -61,6 +78,19 @@ export function WorkersClient({ workers }: { workers: Worker[] }) {
               className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
             />
           </div>
+          <div className="sm:min-w-[160px] sm:flex-1">
+            <label className="mb-1 block text-sm font-medium text-neutral-700">
+              Salario mensual (opcional)
+            </label>
+            <input
+              name="monthly_salary"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="1750905"
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            />
+          </div>
           <button
             type="submit"
             disabled={pending}
@@ -102,6 +132,53 @@ export function WorkersClient({ workers }: { workers: Worker[] }) {
                       {worker.active ? "Activo" : "Inactivo"}
                     </span>
                   </p>
+                  {salaryEditorId === worker.id ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        autoFocus
+                        value={salaryDraft}
+                        onChange={(e) => setSalaryDraft(e.target.value)}
+                        className="w-36 rounded-lg border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                      />
+                      <button
+                        disabled={savingSalary}
+                        onClick={async () => {
+                          const value = Number(salaryDraft);
+                          if (!Number.isFinite(value) || value < 0) return;
+                          setSavingSalary(true);
+                          await updateWorkerSalary(worker.id, value);
+                          setSavingSalary(false);
+                          setSalaryEditorId(null);
+                          router.refresh();
+                        }}
+                        className="rounded-lg bg-brand-dark px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand disabled:opacity-60"
+                      >
+                        {savingSalary ? "Guardando..." : "Guardar"}
+                      </button>
+                      <button
+                        onClick={() => setSalaryEditorId(null)}
+                        className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-sm text-neutral-500">
+                      {formatSalary(worker.monthly_salary)}{" "}
+                      <button
+                        onClick={() => {
+                          setSalaryDraft(String(worker.monthly_salary ?? ""));
+                          setSalaryEditorId(worker.id);
+                        }}
+                        className="font-medium text-brand-dark hover:underline"
+                      >
+                        Editar
+                      </button>
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button

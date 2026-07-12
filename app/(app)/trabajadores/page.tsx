@@ -12,7 +12,7 @@ export default async function TrabajadoresPage() {
   const supabase = await createClient();
   const { data: workers } = await supabase
     .from("workers")
-    .select("id, full_name, document_id, qr_token, active, created_at")
+    .select("id, full_name, document_id, qr_token, active, created_at, monthly_salary")
     .order("full_name");
 
   return <WorkersClient workers={(workers as Worker[]) ?? []} />;

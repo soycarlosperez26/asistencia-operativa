@@ -52,17 +52,38 @@ const MOCK_PROJECTS = [
   { code: "P003-PLANTA", name: "Planta Principal - Mantenimiento Preventivo" },
 ];
 
+// Salario mínimo legal vigente 2026 (ver hoja CONTROL/DATOS de las plantillas
+// de nómina) — todos los trabajadores mock quedan cargados con este valor
+// para poder probar el cálculo de nómina en /control sin datos reales.
+const MOCK_MINIMUM_WAGE = 1750905;
+
+// Set anterior de trabajadores mock (nombres en español) — se borran junto
+// con sus marcaciones cada vez que corre el script, antes de sembrar el set
+// nuevo de abajo.
+const OLD_MOCK_DOCUMENT_IDS = [
+  "99510014481",
+  "99510924882",
+  "99511402463",
+  "99508786644",
+  "99500868525",
+  "99512045316",
+  "99509321457",
+  "99511876238",
+  "99507654129",
+  "99513298760",
+];
+
 const MOCK_WORKERS = [
-  { full_name: "GUSTAVO ADOLFO PÉREZ CASSIANI", document_id: "99510014481" },
-  { full_name: "ANGIE PAOLA HERNANDEZ GOMEZ", document_id: "99510924882" },
-  { full_name: "LUIS ALBERTO SAMPER ESCOBAR", document_id: "99511402463" },
-  { full_name: "ADOLFO ANTONIO RODRIGUEZ DE ALBA", document_id: "99508786644" },
-  { full_name: "NUMA POMPILIO BARBA DE CARO", document_id: "99500868525" },
-  { full_name: "MARIA JOSE CASTRO OSPINO", document_id: "99512045316" },
-  { full_name: "CARLOS EDUARDO MENDOZA RUIZ", document_id: "99509321457" },
-  { full_name: "DIANA PATRICIA VILLA ACOSTA", document_id: "99511876238" },
-  { full_name: "JORGE LUIS TORRES NAVARRO", document_id: "99507654129" },
-  { full_name: "SANDRA MILENA OROZCO PEÑA", document_id: "99513298760" },
+  { full_name: "JAMES ROBERT MITCHELL", document_id: "99520014481", monthly_salary: MOCK_MINIMUM_WAGE },
+  { full_name: "OLIVIA GRACE BENNETT", document_id: "99520924882", monthly_salary: MOCK_MINIMUM_WAGE },
+  { full_name: "WILLIAM HENRY SUTTON", document_id: "99521402463", monthly_salary: MOCK_MINIMUM_WAGE },
+  { full_name: "AMELIA ROSE CARTER", document_id: "99518786644", monthly_salary: MOCK_MINIMUM_WAGE },
+  { full_name: "BENJAMIN ALEXANDER COLE", document_id: "99500868526", monthly_salary: MOCK_MINIMUM_WAGE },
+  { full_name: "CHARLOTTE MARIE DAWSON", document_id: "99522045316", monthly_salary: MOCK_MINIMUM_WAGE },
+  { full_name: "DANIEL CHRISTOPHER REED", document_id: "99519321457", monthly_salary: MOCK_MINIMUM_WAGE },
+  { full_name: "SOPHIA ELIZABETH WARREN", document_id: "99521876238", monthly_salary: MOCK_MINIMUM_WAGE },
+  { full_name: "MICHAEL ANTHONY BROOKS", document_id: "99517654129", monthly_salary: MOCK_MINIMUM_WAGE },
+  { full_name: "EMMA ISABELLA HAYES", document_id: "99523298760", monthly_salary: MOCK_MINIMUM_WAGE },
 ];
 
 function isWeekday(date) {
@@ -136,10 +157,35 @@ async function main() {
     .select("id, full_name, document_id");
   if (workersError) throw workersError;
 
-  const existingDocs = new Set((existingWorkers ?? []).map((w) => w.document_id));
+  const oldMockWorkers = (existingWorkers ?? []).filter((w) =>
+    OLD_MOCK_DOCUMENT_IDS.includes(w.document_id)
+  );
+  if (oldMockWorkers.length > 0) {
+    console.log(`Borrando ${oldMockWorkers.length} trabajadores mock anteriores y sus marcaciones...`);
+    const oldIds = oldMockWorkers.map((w) => w.id);
+    const { error: deleteOldAttendanceError } = await supabase
+      .from("attendance_records")
+      .delete()
+      .in("worker_id", oldIds);
+    if (deleteOldAttendanceError) throw deleteOldAttendanceError;
+
+    const { error: deleteOldWorkersError } = await supabase
+      .from("workers")
+      .delete()
+      .in("id", oldIds);
+    if (deleteOldWorkersError) throw deleteOldWorkersError;
+  }
+
+  const existingDocs = new Set(
+    (existingWorkers ?? [])
+      .filter((w) => !OLD_MOCK_DOCUMENT_IDS.includes(w.document_id))
+      .map((w) => w.document_id)
+  );
   const workersToInsert = MOCK_WORKERS.filter((w) => !existingDocs.has(w.document_id));
 
-  let workers = existingWorkers ?? [];
+  let workers = (existingWorkers ?? []).filter(
+    (w) => !OLD_MOCK_DOCUMENT_IDS.includes(w.document_id)
+  );
   if (workersToInsert.length > 0) {
     console.log(`Creando ${workersToInsert.length} trabajadores mock...`);
     const { data: inserted, error } = await supabase

@@ -1,0 +1,73 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/profile";
+
+export interface ActionState {
+  error?: string;
+  success?: boolean;
+}
+
+async function requireAdmin() {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.role !== "admin") {
+    return null;
+  }
+  return profile;
+}
+
+function parsePositiveNumber(formData: FormData, field: string): number | null {
+  const raw = String(formData.get(field) ?? "").trim();
+  if (!raw) return null;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0) return null;
+  return value;
+}
+
+export async function saveLegalParameters(
+  _prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  if (!(await requireAdmin())) {
+    return { error: "No tienes permisos para editar los parámetros legales." };
+  }
+
+  const year = Number(formData.get("year"));
+  if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+    return { error: "El año no es válido." };
+  }
+
+  const fields = {
+    minimum_wage: parsePositiveNumber(formData, "minimum_wage"),
+    transport_allowance: parsePositiveNumber(formData, "transport_allowance"),
+    overtime_day_factor: parsePositiveNumber(formData, "overtime_day_factor"),
+    overtime_night_factor: parsePositiveNumber(formData, "overtime_night_factor"),
+    night_surcharge_factor: parsePositiveNumber(formData, "night_surcharge_factor"),
+    holiday_day_factor: parsePositiveNumber(formData, "holiday_day_factor"),
+    holiday_night_surcharge_factor: parsePositiveNumber(formData, "holiday_night_surcharge_factor"),
+    holiday_night_factor: parsePositiveNumber(formData, "holiday_night_factor"),
+    holiday_overtime_day_factor: parsePositiveNumber(formData, "holiday_overtime_day_factor"),
+    holiday_overtime_night_factor: parsePositiveNumber(formData, "holiday_overtime_night_factor"),
+    lunch_subsidy_per_day: parsePositiveNumber(formData, "lunch_subsidy_per_day"),
+  };
+
+  if (Object.values(fields).some((value) => value === null)) {
+    return { error: "Todos los valores son obligatorios y deben ser números válidos." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("legal_parameters")
+    .upsert(
+      { year, ...fields, updated_at: new Date().toISOString() },
+      { onConflict: "year" }
+    );
+
+  if (error) {
+    return { error: "No se pudieron guardar los parámetros legales." };
+  }
+
+  revalidatePath("/control");
+  return { success: true };
+}

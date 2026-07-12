@@ -2,8 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { COMPANY_NAME } from "@/lib/config";
 import { Logo } from "@/components/Logo";
-import { NavLinks } from "./NavLinks";
-import { SignOutButton } from "./SignOutButton";
+import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
 
 export default async function AppLayout({
@@ -18,38 +17,24 @@ export default async function AppLayout({
   }
 
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-3">
+    <div className="flex min-h-full flex-1">
+      <Sidebar profile={profile} />
+
+      <div className="flex min-h-full flex-1 flex-col">
+        <header className="border-b border-neutral-200 bg-white md:hidden">
+          <div className="flex items-center gap-3 px-4 py-3">
             <MobileNav profile={profile} />
             <Logo className="h-9 w-9 shrink-0 object-contain" />
-            <span className="hidden truncate text-sm font-semibold text-neutral-800 sm:block">
+            <span className="truncate text-sm font-semibold text-neutral-800">
               {COMPANY_NAME}
             </span>
           </div>
+        </header>
 
-          <div className="hidden md:flex">
-            <NavLinks role={profile.role} />
-          </div>
-
-          <div className="hidden items-center gap-3 md:flex">
-            <div className="text-right">
-              <p className="text-sm font-medium text-neutral-800">
-                {profile.full_name}
-              </p>
-              <p className="text-xs capitalize text-neutral-500">
-                {profile.role}
-              </p>
-            </div>
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6">
-        {children}
-      </main>
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:px-6">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }

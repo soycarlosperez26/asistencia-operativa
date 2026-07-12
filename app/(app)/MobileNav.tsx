@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faBars, faXmark, faCircleUser } from "@fortawesome/free-solid-svg-icons";
 import { Logo } from "@/components/Logo";
 import { COMPANY_NAME } from "@/lib/config";
 import type { Profile } from "@/lib/types";
@@ -25,17 +27,7 @@ export function MobileNav({ profile }: { profile: Profile }) {
         aria-label="Abrir menú"
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-neutral-300 text-neutral-700 md:hidden"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinecap="round"
-          className="h-5 w-5"
-        >
-          <path d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+        <FontAwesomeIcon icon={faBars} className="h-5 w-5" />
       </button>
 
       {open && (
@@ -57,7 +49,7 @@ export function MobileNav({ profile }: { profile: Profile }) {
                 aria-label="Cerrar menú"
                 className="shrink-0 text-neutral-400 hover:text-neutral-600"
               >
-                ✕
+                <FontAwesomeIcon icon={faXmark} className="h-5 w-5" />
               </button>
             </div>
 
@@ -69,16 +61,22 @@ export function MobileNav({ profile }: { profile: Profile }) {
               />
             </div>
 
-            <div className="border-t border-neutral-200 pt-4">
-              <p className="text-sm font-medium text-neutral-800">
-                {profile.full_name}
-              </p>
-              <p className="text-xs capitalize text-neutral-500">
-                {profile.role}
-              </p>
-              <div className="mt-3">
-                <SignOutButton />
+            <div className="flex items-center gap-3 border-t border-neutral-200 pt-4">
+              <FontAwesomeIcon
+                icon={faCircleUser}
+                className="h-8 w-8 shrink-0 text-neutral-400"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-neutral-800">
+                  {profile.full_name}
+                </p>
+                <p className="text-xs capitalize text-neutral-500">
+                  {profile.role}
+                </p>
               </div>
+            </div>
+            <div className="mt-3">
+              <SignOutButton />
             </div>
           </div>
         </div>

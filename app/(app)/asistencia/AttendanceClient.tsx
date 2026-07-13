@@ -222,7 +222,7 @@ export function AttendanceClient({
                   </p>
                 )}
                 <p className="mt-0.5 text-xs text-neutral-400">
-                  {new Date(record.recorded_at).toLocaleString("es-CO")}
+                  {new Date(record.recorded_at).toISOString()}
                 </p>
               </li>
             ))}

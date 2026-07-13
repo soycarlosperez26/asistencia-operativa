@@ -1,7 +1,12 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faFilePdf } from "@fortawesome/free-solid-svg-icons";
 import type { WorkerPayrollRow } from "@/lib/payroll";
+import { generatePayslipPdf } from "@/lib/payslipPdf";
+import { COMPANY_NAME } from "@/lib/config";
 
 function currency(value: number): string {
   return value.toLocaleString("es-CO", {
@@ -81,7 +86,83 @@ function CategoryTable({ row }: { row: WorkerPayrollRow }) {
   );
 }
 
-export function PayrollTable({ rows }: { rows: WorkerPayrollRow[] }) {
+function PayslipButton({
+  row,
+  from,
+  to,
+  className = "",
+}: {
+  row: WorkerPayrollRow;
+  from: string;
+  to: string;
+  className?: string;
+}) {
+  const [generating, setGenerating] = useState(false);
+  const [tooltipPos, setTooltipPos] = useState<{ top: number; left: number } | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  function showTooltip() {
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setTooltipPos({ top: rect.top - 8, left: rect.left + rect.width / 2 });
+  }
+
+  function hideTooltip() {
+    setTooltipPos(null);
+  }
+
+  async function handleClick() {
+    setGenerating(true);
+    try {
+      await generatePayslipPdf(row, { from, to, companyName: COMPANY_NAME });
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={handleClick}
+        onMouseEnter={showTooltip}
+        onMouseLeave={hideTooltip}
+        onFocus={showTooltip}
+        onBlur={hideTooltip}
+        disabled={generating}
+        aria-label="Volante de pago"
+        className={`flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-neutral-300 text-red-600 hover:bg-neutral-50 disabled:cursor-default disabled:opacity-60 ${className}`}
+      >
+        <FontAwesomeIcon
+          icon={faFilePdf}
+          className={generating ? "h-4 w-4 animate-pulse" : "h-4 w-4"}
+        />
+      </button>
+      {tooltipPos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <span
+            className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-md bg-neutral-900 px-2 py-1 text-xs font-medium text-white shadow-sm"
+            style={{ top: tooltipPos.top, left: tooltipPos.left }}
+          >
+            {generating ? "Generando..." : "Volante de pago"}
+          </span>,
+          document.body
+        )}
+    </>
+  );
+}
+
+export function PayrollTable({
+  rows,
+  from,
+  to,
+}: {
+  rows: WorkerPayrollRow[];
+  from: string;
+  to: string;
+}) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   if (rows.length === 0) {
@@ -154,14 +235,17 @@ export function PayrollTable({ rows }: { rows: WorkerPayrollRow[] }) {
               </div>
             </dl>
 
-            <button
-              onClick={() =>
-                setExpanded(expanded === row.workerId ? null : row.workerId)
-              }
-              className="mt-3 w-full rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-            >
-              {expanded === row.workerId ? "Ocultar detalle" : "Ver detalle"}
-            </button>
+            <div className="mt-3 flex items-center gap-2">
+              <button
+                onClick={() =>
+                  setExpanded(expanded === row.workerId ? null : row.workerId)
+                }
+                className="flex-1 cursor-pointer rounded-lg border border-neutral-300 px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+              >
+                {expanded === row.workerId ? "Ocultar detalle" : "Ver detalle"}
+              </button>
+              <PayslipButton row={row} from={from} to={to} />
+            </div>
 
             {expanded === row.workerId && (
               <div className="mt-3 rounded-lg bg-neutral-50 p-3">
@@ -226,23 +310,19 @@ export function PayrollTable({ rows }: { rows: WorkerPayrollRow[] }) {
                     <Money value={row.netPay} />
                   </td>
                   <td className="px-3 py-2">
-                    <button
-                      onClick={() =>
-                        setExpanded(expanded === row.workerId ? null : row.workerId)
-                      }
-                      className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-                    >
-                      {expanded === row.workerId ? "Ocultar" : "Detalle"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() =>
+                          setExpanded(expanded === row.workerId ? null : row.workerId)
+                        }
+                        className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 cursor-pointer"
+                      >
+                        {expanded === row.workerId ? "Ocultar" : "Detalle"}
+                      </button>
+                      <PayslipButton row={row} from={from} to={to} />
+                    </div>
                   </td>
                 </tr>
-                {expanded === row.workerId && (
-                  <tr>
-                    <td colSpan={10} className="bg-neutral-50 px-3 py-3">
-                      <CategoryTable row={row} />
-                    </td>
-                  </tr>
-                )}
               </Fragment>
             ))}
           </tbody>

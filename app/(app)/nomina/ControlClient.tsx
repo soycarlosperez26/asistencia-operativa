@@ -452,7 +452,7 @@ export function ControlClient({
               </p>
             )}
 
-            <PayrollTable rows={payrollRows} />
+            <PayrollTable rows={payrollRows} from={from} to={to} />
 
             <Pagination
               basePath="/nomina"

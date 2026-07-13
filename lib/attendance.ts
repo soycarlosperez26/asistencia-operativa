@@ -7,6 +7,13 @@ export function startOfTodayISO(): string {
   return now.toISOString();
 }
 
+/** Inicio del día (00:00, hora del cliente) en ISO, para filtrar "hoy". */
+export function startOfTodayLocal(): string {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return now.toLocaleString();
+}
+
 /**
  * Cuenta trabajadores presentes: el último evento del día de cada
  * trabajador es 'entrada'.

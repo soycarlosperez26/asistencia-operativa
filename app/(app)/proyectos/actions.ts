@@ -65,48 +65,32 @@ export async function toggleProjectActive(projectId: string, active: boolean) {
   return { success: true };
 }
 
-export async function createSupervisor(
+export async function assignSupervisor(
   _prevState: ActionState,
   formData: FormData
 ): Promise<ActionState> {
   if (!(await requireAdmin())) {
-    return { error: "No tienes permisos para crear supervisores." };
+    return { error: "No tienes permisos para asignar supervisores." };
   }
 
   const projectId = String(formData.get("project_id") ?? "").trim();
-  const fullName = String(formData.get("full_name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
+  const userId = String(formData.get("user_id") ?? "").trim();
 
-  if (!projectId || !fullName || !email || password.length < 8) {
-    return {
-      error:
-        "Completa proyecto, nombre y correo; la contraseña debe tener al menos 8 caracteres.",
-    };
+  if (!projectId || !userId) {
+    return { error: "Selecciona un usuario para asignar." };
   }
 
   const admin = createAdminClient();
-  const { data: created, error: createError } = await admin.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
+  const { error } = await admin
+    .from("profiles")
+    .update({ role: "supervisor", project_id: projectId })
+    .eq("id", userId);
 
-  if (createError || !created.user) {
-    return { error: createError?.message ?? "No se pudo crear el usuario." };
-  }
-
-  const { error: profileError } = await admin.from("profiles").insert({
-    id: created.user.id,
-    full_name: fullName,
-    role: "supervisor",
-    project_id: projectId,
-  });
-
-  if (profileError) {
-    return { error: "Usuario creado, pero no se pudo asignar el perfil." };
+  if (error) {
+    return { error: "No se pudo asignar el supervisor." };
   }
 
   revalidatePath("/proyectos");
+  revalidatePath("/usuarios");
   return { success: true };
 }

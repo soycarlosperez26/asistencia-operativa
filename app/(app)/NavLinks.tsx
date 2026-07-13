@@ -9,6 +9,7 @@ import {
   faUsers,
   faDiagramProject,
   faGauge,
+  faUsersGear,
 } from "@fortawesome/free-solid-svg-icons";
 import type { UserRole } from "@/lib/types";
 
@@ -28,7 +29,8 @@ export function NavLinks({ role, vertical = false, onNavigate }: NavLinksProps) 
       ? [
           { href: "/trabajadores", label: "Trabajadores", icon: faUsers },
           { href: "/proyectos", label: "Proyectos", icon: faDiagramProject },
-          { href: "/control", label: "Control", icon: faGauge },
+          { href: "/nomina", label: "Nominas", icon: faGauge },
+          { href: "/usuarios", label: "Usuarios", icon: faUsersGear },
         ]
       : []),
   ];

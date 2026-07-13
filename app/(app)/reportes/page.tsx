@@ -7,14 +7,14 @@ import {
   dateRangeBoundsISO,
   formatReportDate,
   formatReportTime,
-  hoursByWorker,
   STANDARD_WORKDAY_HOURS,
   summarizeWorkedHours,
+  type WorkedHoursRow,
 } from "@/lib/reports";
 import type { AttendanceRecordWithRelations, Project, Worker } from "@/lib/types";
+import { Pagination } from "@/components/Pagination";
 import { ExportExcelButton } from "./ExportExcelButton";
 import { ReportSummary } from "./ReportSummary";
-import { WorkerHoursBars } from "./WorkerHoursBars";
 
 function todayISODate(): string {
   return new Date().toISOString().slice(0, 10);
@@ -32,6 +32,28 @@ interface ReportesSearchParams {
   worker?: string;
   project?: string;
   onlyMissing?: string;
+  sort?: string;
+  dir?: string;
+  page?: string;
+}
+
+type SortField = "worker" | "date" | "hours";
+
+const PAGE_SIZE = 20;
+
+function sortRows(rows: WorkedHoursRow[], field: SortField, dir: "asc" | "desc") {
+  const sorted = [...rows].sort((a, b) => {
+    let cmp = 0;
+    if (field === "worker") cmp = a.workerName.localeCompare(b.workerName);
+    else if (field === "date") cmp = a.date.localeCompare(b.date);
+    else cmp = (a.hoursWorked ?? -1) - (b.hoursWorked ?? -1);
+
+    if (cmp === 0) {
+      cmp = a.workerName.localeCompare(b.workerName) || a.date.localeCompare(b.date);
+    }
+    return dir === "asc" ? cmp : -cmp;
+  });
+  return sorted;
 }
 
 export default async function ReportesPage({
@@ -99,7 +121,47 @@ export default async function ReportesPage({
   );
   const rows = onlyMissing ? allRows.filter((row) => !row.hasCheckout) : allRows;
   const summary = summarizeWorkedHours(rows);
-  const workerTotals = hoursByWorker(rows);
+
+  const sortField: SortField =
+    params.sort === "date" || params.sort === "hours" ? params.sort : "worker";
+  const sortDir: "asc" | "desc" = params.dir === "desc" ? "desc" : "asc";
+  const sortedRows = sortRows(rows, sortField, sortDir);
+
+  const totalRows = sortedRows.length;
+  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  const currentPage = Math.min(Math.max(1, Number(params.page) || 1), totalPages);
+  const pageRows = sortedRows.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  const baseSearchParams = {
+    from,
+    to,
+    worker: workerId,
+    project: projectId,
+    onlyMissing: onlyMissing ? "1" : undefined,
+    sort: sortField,
+    dir: sortDir,
+  };
+
+  function sortHref(field: SortField): string {
+    const usp = new URLSearchParams();
+    usp.set("from", from);
+    usp.set("to", to);
+    if (workerId) usp.set("worker", workerId);
+    if (projectId) usp.set("project", projectId);
+    if (onlyMissing) usp.set("onlyMissing", "1");
+    const nextDir = sortField === field && sortDir === "asc" ? "desc" : "asc";
+    usp.set("sort", field);
+    usp.set("dir", nextDir);
+    return `/reportes?${usp.toString()}`;
+  }
+
+  function sortIndicator(field: SortField): string {
+    if (sortField !== field) return "";
+    return sortDir === "asc" ? " ▲" : " ▼";
+  }
 
   return (
     <div className="space-y-6">
@@ -220,15 +282,6 @@ export default async function ReportesPage({
         <ReportSummary summary={summary} />
       </div>
 
-      {workerTotals.length > 0 && (
-        <div className="rounded-2xl bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-lg font-bold text-neutral-900">
-            Horas trabajadas por trabajador
-          </h2>
-          <WorkerHoursBars totals={workerTotals} />
-        </div>
-      )}
-
       <div className="rounded-2xl bg-white p-5 shadow-sm">
         <h2 className="mb-4 text-lg font-bold text-neutral-900">
           Detalle diario de horas trabajadas
@@ -239,65 +292,87 @@ export default async function ReportesPage({
           reglas oficiales de horario.
         </p>
 
-        {rows.length === 0 ? (
+        {totalRows === 0 ? (
           <p className="text-sm text-neutral-500">
             No hay registros de asistencia en el rango seleccionado.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead>
-                <tr className="bg-brand-dark text-xs uppercase text-white">
-                  <th className="rounded-l-lg px-3 py-2">Trabajador</th>
-                  <th className="px-3 py-2">Documento</th>
-                  <th className="px-3 py-2">Fecha</th>
-                  <th className="px-3 py-2">Proyecto</th>
-                  <th className="px-3 py-2">Entrada</th>
-                  <th className="px-3 py-2">Salida</th>
-                  <th className="px-3 py-2">Horas Trabajadas</th>
-                  <th className="rounded-r-lg px-3 py-2">Horas Extras Diurnas</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-100">
-                {rows.map((row) => (
-                  <tr key={row.key}>
-                    <td className="px-3 py-2 font-medium text-neutral-900">
-                      {row.workerName}
-                    </td>
-                    <td className="px-3 py-2 text-neutral-600">
-                      {row.documentId}
-                    </td>
-                    <td className="px-3 py-2 text-neutral-600">
-                      {formatReportDate(row.date)}
-                    </td>
-                    <td className="px-3 py-2 text-neutral-600">
-                      {row.projectCode}
-                    </td>
-                    <td className="px-3 py-2 font-medium text-brand-dark">
-                      {formatReportTime(row.entradaAt)}
-                    </td>
-                    <td className="px-3 py-2">
-                      {row.salidaAt ? (
-                        <span className="font-medium text-orange-600">
-                          {formatReportTime(row.salidaAt)}
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
-                          Sin Marcación
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-neutral-900">
-                      {row.hoursWorked?.toFixed(2) ?? "-"}
-                    </td>
-                    <td className="px-3 py-2 text-neutral-900">
-                      {row.overtimeDay?.toFixed(2) ?? "-"}
-                    </td>
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] text-left text-sm">
+                <thead>
+                  <tr className="bg-brand-dark text-xs uppercase text-white">
+                    <th className="rounded-l-lg px-3 py-2">
+                      <Link href={sortHref("worker")} className="hover:underline">
+                        Trabajador{sortIndicator("worker")}
+                      </Link>
+                    </th>
+                    <th className="px-3 py-2">Documento</th>
+                    <th className="px-3 py-2">
+                      <Link href={sortHref("date")} className="hover:underline">
+                        Fecha{sortIndicator("date")}
+                      </Link>
+                    </th>
+                    <th className="px-3 py-2">Proyecto</th>
+                    <th className="px-3 py-2">Entrada</th>
+                    <th className="px-3 py-2">Salida</th>
+                    <th className="px-3 py-2">
+                      <Link href={sortHref("hours")} className="hover:underline">
+                        Horas Trabajadas{sortIndicator("hours")}
+                      </Link>
+                    </th>
+                    <th className="rounded-r-lg px-3 py-2">Horas Extras Diurnas</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {pageRows.map((row) => (
+                    <tr key={row.key}>
+                      <td className="px-3 py-2 font-medium text-neutral-900">
+                        {row.workerName}
+                      </td>
+                      <td className="px-3 py-2 text-neutral-600">
+                        {row.documentId}
+                      </td>
+                      <td className="px-3 py-2 text-neutral-600">
+                        {formatReportDate(row.date)}
+                      </td>
+                      <td className="px-3 py-2 text-neutral-600">
+                        {row.projectCode}
+                      </td>
+                      <td className="px-3 py-2 font-medium text-brand-dark">
+                        {formatReportTime(row.entradaAt)}
+                      </td>
+                      <td className="px-3 py-2">
+                        {row.salidaAt ? (
+                          <span className="font-medium text-orange-600">
+                            {formatReportTime(row.salidaAt)}
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700">
+                            Sin Marcación
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-neutral-900">
+                        {row.hoursWorked?.toFixed(2) ?? "-"}
+                      </td>
+                      <td className="px-3 py-2 text-neutral-900">
+                        {row.overtimeDay?.toFixed(2) ?? "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <Pagination
+              basePath="/reportes"
+              searchParams={baseSearchParams}
+              page={currentPage}
+              totalPages={totalPages}
+              totalItems={totalRows}
+            />
+          </>
         )}
       </div>
     </div>

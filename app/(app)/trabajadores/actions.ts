@@ -9,6 +9,43 @@ export interface WorkerFormState {
   success?: boolean;
 }
 
+export interface WorkerSuggestion {
+  id: string;
+  full_name: string;
+  document_id: string;
+}
+
+export async function searchWorkerSuggestions(query: string): Promise<WorkerSuggestion[]> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.role !== "admin") return [];
+
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  const supabase = await createClient();
+  const [{ data: byName }, { data: byDoc }] = await Promise.all([
+    supabase
+      .from("workers")
+      .select("id, full_name, document_id")
+      .ilike("full_name", `%${trimmed}%`)
+      .order("full_name")
+      .limit(8),
+    supabase
+      .from("workers")
+      .select("id, full_name, document_id")
+      .ilike("document_id", `%${trimmed}%`)
+      .order("full_name")
+      .limit(8),
+  ]);
+
+  const byId = new Map<string, WorkerSuggestion>();
+  for (const worker of [...(byName ?? []), ...(byDoc ?? [])]) {
+    byId.set(worker.id, worker);
+  }
+
+  return [...byId.values()].slice(0, 8);
+}
+
 export async function createWorker(
   _prevState: WorkerFormState,
   formData: FormData

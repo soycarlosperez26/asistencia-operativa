@@ -4,12 +4,14 @@ import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Worker } from "@/lib/types";
 import { WorkerQrCard } from "@/components/WorkerQrCard";
+import { Pagination } from "@/components/Pagination";
 import {
   createWorker,
   toggleWorkerActive,
   updateWorkerSalary,
   type WorkerFormState,
 } from "./actions";
+import { WorkerSearchBar } from "./WorkerSearchBar";
 
 const initialState: WorkerFormState = {};
 
@@ -22,7 +24,19 @@ function formatSalary(value: number | null): string {
   });
 }
 
-export function WorkersClient({ workers }: { workers: Worker[] }) {
+export function WorkersClient({
+  workers,
+  totalCount,
+  page,
+  totalPages,
+  query,
+}: {
+  workers: Worker[];
+  totalCount: number;
+  page: number;
+  totalPages: number;
+  query: string;
+}) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(createWorker, initialState);
   const [qrWorker, setQrWorker] = useState<Worker | null>(null);
@@ -107,12 +121,19 @@ export function WorkersClient({ workers }: { workers: Worker[] }) {
       </div>
 
       <div className="rounded-2xl bg-white p-5 shadow-sm">
-        <h2 className="mb-4 text-lg font-bold text-neutral-900">
-          Todos los trabajadores ({workers.length})
-        </h2>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+          <h2 className="text-lg font-bold text-neutral-900">
+            Todos los trabajadores ({totalCount})
+          </h2>
+          <WorkerSearchBar initialQuery={query} />
+        </div>
 
         {workers.length === 0 ? (
-          <p className="text-sm text-neutral-500">Aún no hay trabajadores.</p>
+          <p className="text-sm text-neutral-500">
+            {query
+              ? "No se encontraron trabajadores con ese criterio."
+              : "Aún no hay trabajadores."}
+          </p>
         ) : (
           <ul className="divide-y divide-neutral-100">
             {workers.map((worker) => (
@@ -201,6 +222,14 @@ export function WorkersClient({ workers }: { workers: Worker[] }) {
             ))}
           </ul>
         )}
+
+        <Pagination
+          basePath="/trabajadores"
+          searchParams={{ q: query || undefined }}
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalCount}
+        />
       </div>
 
       {qrWorker && (

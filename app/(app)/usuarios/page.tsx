@@ -3,10 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import type { Profile, Project } from "@/lib/types";
-import { ProjectsClient } from "./ProjectsClient";
-import type { AssignableUser } from "./SupervisorFormModal";
+import { UsersClient, type UserRow } from "./UsersClient";
 
-export default async function ProyectosPage() {
+export default async function UsuariosPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (profile.role !== "admin") redirect("/asistencia");
@@ -14,16 +13,13 @@ export default async function ProyectosPage() {
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  const [{ data: projects }, { data: profiles }, { data: authUsers }] =
+  const [{ data: profiles }, { data: projects }, { data: authUsers }] =
     await Promise.all([
-      supabase
-        .from("projects")
-        .select("id, code, name, active, created_at")
-        .order("code"),
       supabase
         .from("profiles")
         .select("id, full_name, role, project_id, created_at")
         .order("full_name"),
+      supabase.from("projects").select("id, code, name, active, created_at").order("code"),
       admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
     ]);
 
@@ -31,27 +27,16 @@ export default async function ProyectosPage() {
     (authUsers?.users ?? []).map((user) => [user.id, user.email ?? ""])
   );
 
-  const allProfiles = (profiles as Profile[]) ?? [];
-
-  const supervisorsByProject: Record<string, Profile[]> = {};
-  for (const p of allProfiles) {
-    if (p.role !== "supervisor" || !p.project_id) continue;
-    (supervisorsByProject[p.project_id] ??= []).push(p);
-  }
-
-  const users: AssignableUser[] = allProfiles.map((p) => ({
-    id: p.id,
-    full_name: p.full_name,
+  const users: UserRow[] = ((profiles as Profile[]) ?? []).map((p) => ({
+    ...p,
     email: emailById.get(p.id) ?? "",
-    role: p.role,
-    project_id: p.project_id,
   }));
 
   return (
-    <ProjectsClient
-      projects={(projects as Project[]) ?? []}
-      supervisorsByProject={supervisorsByProject}
+    <UsersClient
       users={users}
+      projects={(projects as Project[]) ?? []}
+      currentUserId={profile.id}
     />
   );
 }

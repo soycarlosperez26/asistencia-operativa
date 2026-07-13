@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Profile, Project } from "@/lib/types";
-import { SupervisorFormModal } from "./SupervisorFormModal";
+import { SupervisorFormModal, type AssignableUser } from "./SupervisorFormModal";
 import { createProject, toggleProjectActive, type ActionState } from "./actions";
 
 const initialState: ActionState = {};
@@ -11,9 +11,11 @@ const initialState: ActionState = {};
 export function ProjectsClient({
   projects,
   supervisorsByProject,
+  users,
 }: {
   projects: Project[];
   supervisorsByProject: Record<string, Profile[]>;
+  users: AssignableUser[];
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(createProject, initialState);
@@ -119,7 +121,7 @@ export function ProjectsClient({
                         onClick={() => setSupervisorProject(project)}
                         className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 sm:flex-none"
                       >
-                        Agregar supervisor
+                        Asignar supervisor
                       </button>
                       <button
                         onClick={async () => {
@@ -142,6 +144,7 @@ export function ProjectsClient({
       {supervisorProject && (
         <SupervisorFormModal
           project={supervisorProject}
+          users={users}
           onClose={() => {
             setSupervisorProject(null);
             router.refresh();

@@ -1,4 +1,4 @@
-import type { AttendanceRecordWithRelations, LegalParameters, Worker } from "@/lib/types";
+import type { AttendanceRecordWithRelations, LegalParameters, Project, Worker } from "@/lib/types";
 import { buildWorkedHoursReport, STANDARD_WORKDAY_HOURS } from "@/lib/reports";
 import { isFestivo } from "@/lib/colombianHolidays";
 
@@ -134,6 +134,8 @@ export interface WorkerPayrollRow {
   monthlySalary: number | null;
   missingSalary: boolean;
   daysWorked: number;
+  /** Códigos de los proyectos en los que el trabajador marcó asistencia en el período. */
+  projectCodes: string[];
   categories: PayrollCategory[];
   basico: number;
   extrasTotal: number;
@@ -223,11 +225,16 @@ export function buildPayrollReport(
 
   const daysByWorker = new Map<string, Set<string>>();
   const bucketsByWorker = new Map<string, HourBuckets>();
+  const projectsByWorker = new Map<string, Set<string>>();
 
   for (const session of sessions) {
     const days = daysByWorker.get(session.workerId) ?? new Set<string>();
     days.add(session.date);
     daysByWorker.set(session.workerId, days);
+
+    const projects = projectsByWorker.get(session.workerId) ?? new Set<string>();
+    projects.add(session.projectCode);
+    projectsByWorker.set(session.workerId, projects);
 
     if (!session.hasCheckout || !session.salidaAt) continue;
     const buckets = bucketsByWorker.get(session.workerId) ?? emptyBuckets();
@@ -262,6 +269,8 @@ export function buildPayrollReport(
     const pensionDeduction = round2(basico * EMPLOYEE_PENSION_PCT);
     const netPay = round2(totalEarned - healthDeduction - pensionDeduction);
 
+    const projectCodes = [...(projectsByWorker.get(worker.id) ?? [])].sort();
+
     rows.push({
       workerId: worker.id,
       workerName: worker.full_name,
@@ -269,6 +278,7 @@ export function buildPayrollReport(
       monthlySalary: worker.monthly_salary,
       missingSalary,
       daysWorked,
+      projectCodes,
       categories,
       basico,
       extrasTotal,
@@ -300,4 +310,11 @@ export function summarizePayroll(rows: WorkerPayrollRow[]): PayrollSummary {
     totalNomina: round2(rows.reduce((sum, r) => sum + r.netPay, 0)),
     workersMissingSalary: rows.filter((r) => r.missingSalary).length,
   };
+}
+
+/** Liquidación de nómina de un proyecto para el período — una "hoja" del consolidado. */
+export interface PayrollByProject {
+  project: Pick<Project, "id" | "code" | "name">;
+  rows: WorkerPayrollRow[];
+  summary: PayrollSummary;
 }

@@ -68,6 +68,6 @@ export async function saveLegalParameters(
     return { error: "No se pudieron guardar los parámetros legales." };
   }
 
-  revalidatePath("/control");
+  revalidatePath("/nomina");
   return { success: true };
 }

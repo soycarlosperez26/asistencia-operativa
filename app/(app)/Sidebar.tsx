@@ -8,7 +8,7 @@ import { SignOutButton } from "./SignOutButton";
 
 export function Sidebar({ profile }: { profile: Profile }) {
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-neutral-200 bg-white md:flex">
+    <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-neutral-200 bg-white md:flex">
       <div className="flex items-center gap-3 border-b border-neutral-200 px-5 py-4">
         <Logo className="h-9 w-9 shrink-0 object-contain" />
         <span className="truncate text-sm font-semibold text-neutral-800">

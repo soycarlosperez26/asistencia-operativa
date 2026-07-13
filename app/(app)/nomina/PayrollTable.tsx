@@ -111,6 +111,8 @@ export function PayrollTable({ rows }: { rows: WorkerPayrollRow[] }) {
                 )}
                 <p className="mt-0.5 text-xs text-neutral-500">
                   {row.daysWorked} días trabajados
+                  {row.projectCodes.length > 0 &&
+                    ` · ${row.projectCodes.join(", ")}`}
                 </p>
               </div>
               <Money
@@ -172,10 +174,11 @@ export function PayrollTable({ rows }: { rows: WorkerPayrollRow[] }) {
 
       {/* Tablet/desktop: full table */}
       <div className="hidden overflow-x-auto sm:block">
-        <table className="w-full min-w-[900px] text-left text-sm">
+        <table className="w-full min-w-[1000px] text-left text-sm">
           <thead>
             <tr className="bg-brand-dark text-xs uppercase text-white">
               <th className="rounded-l-lg px-3 py-2">Trabajador</th>
+              <th className="px-3 py-2">Proyecto</th>
               <th className="px-3 py-2">Días</th>
               <th className="px-3 py-2">Básico</th>
               <th className="px-3 py-2">Extras</th>
@@ -197,6 +200,11 @@ export function PayrollTable({ rows }: { rows: WorkerPayrollRow[] }) {
                         Sin salario cargado
                       </span>
                     )}
+                  </td>
+                  <td className="px-3 py-2 text-neutral-600">
+                    {row.projectCodes.length > 0
+                      ? row.projectCodes.join(", ")
+                      : "-"}
                   </td>
                   <td className="px-3 py-2 text-neutral-600">{row.daysWorked}</td>
                   <td className="px-3 py-2 text-neutral-900">
@@ -230,7 +238,7 @@ export function PayrollTable({ rows }: { rows: WorkerPayrollRow[] }) {
                 </tr>
                 {expanded === row.workerId && (
                   <tr>
-                    <td colSpan={9} className="bg-neutral-50 px-3 py-3">
+                    <td colSpan={10} className="bg-neutral-50 px-3 py-3">
                       <CategoryTable row={row} />
                     </td>
                   </tr>

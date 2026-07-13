@@ -148,33 +148,6 @@ export function summarizeWorkedHours(rows: WorkedHoursRow[]): WorkedHoursSummary
   };
 }
 
-export interface WorkerHoursTotal {
-  workerId: string;
-  workerName: string;
-  hoursWorked: number;
-}
-
-/** Horas trabajadas totales por trabajador, de mayor a menor. */
-export function hoursByWorker(rows: WorkedHoursRow[]): WorkerHoursTotal[] {
-  const totals = new Map<string, WorkerHoursTotal>();
-
-  for (const row of rows) {
-    if (row.hoursWorked == null) continue;
-    const existing = totals.get(row.workerId);
-    if (existing) {
-      existing.hoursWorked = round2(existing.hoursWorked + row.hoursWorked);
-    } else {
-      totals.set(row.workerId, {
-        workerId: row.workerId,
-        workerName: row.workerName,
-        hoursWorked: row.hoursWorked,
-      });
-    }
-  }
-
-  return [...totals.values()].sort((a, b) => b.hoursWorked - a.hoursWorked);
-}
-
 export function dateRangeBoundsISO(from: string, to: string) {
   return {
     startISO: new Date(`${from}T00:00:00`).toISOString(),

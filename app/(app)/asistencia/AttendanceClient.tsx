@@ -84,7 +84,7 @@ export function AttendanceClient({
       return;
     }
 
-    setPendingScan({ qrToken, workerName: result.worker.full_name });
+    setPendingScan({ qrToken, workerName: result.worker?.full_name ?? "Supervisor" });
   }
 
   async function handleConfirmObservations(observations: string) {
@@ -214,7 +214,7 @@ export function AttendanceClient({
                     {record.type.toUpperCase()}
                   </span>{" "}
                   · Doc: {record.worker.document_id} · {record.project.code} · Por:{" "}
-                  {record.supervisor.full_name}
+                  {record.supervisor?.full_name ?? "Supervisor"}
                 </p>
                 {record.observations && (
                   <p className="mt-1 rounded-lg bg-white px-2.5 py-1.5 text-xs text-neutral-600">

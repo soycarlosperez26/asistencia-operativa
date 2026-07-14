@@ -92,6 +92,24 @@ export interface LegalParameters {
   lunch_break_start: string;
   /** Hora de fin del almuerzo ("HH:MM:SS"). */
   lunch_break_end: string;
+  /** Hora de entrada de la jornada ("HH:MM:SS"). */
+  shift_start: string;
+  /** Hora de salida de la jornada ("HH:MM:SS"). */
+  shift_end: string;
+  /**
+   * Tiempo de espera en minutos: una marcación de entrada temprana, o hasta
+   * este margen tardía respecto a shift_start, se registra como shift_start
+   * en punto en el cálculo de horas trabajadas (ver applyShiftGracePeriod
+   * en lib/reports.ts). No modifica la marca cruda de asistencia.
+   */
+  grace_minutes: number;
+  /**
+   * Jornada semanal legal (horas) — dato de referencia (Ley 2101 de 2021 /
+   * Ley 2466 de 2025: baja a 42h desde el 15 jul 2026). No se usa todavía en
+   * el motor de cálculo de horas extra, que sigue una jornada diaria fija
+   * (ver STANDARD_WORKDAY_HOURS en lib/reports.ts).
+   */
+  weekly_legal_hours: number;
   /** Salud — aporte del empleador (% del básico). */
   health_employer_percent: number;
   /** Salud — aporte del trabajador (% del básico, se descuenta del neto). */

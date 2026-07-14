@@ -136,8 +136,6 @@ export default async function ControlPage({
 
   return (
     <ControlClient
-      years={parameterRows.map((row) => row.year)}
-      parametersByYear={parametersByYear}
       from={from}
       to={to}
       projects={projectRows}

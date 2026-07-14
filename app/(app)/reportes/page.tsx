@@ -9,11 +9,13 @@ import {
   formatReportTime,
   STANDARD_WORKDAY_HOURS,
   type DeadTimeWindow,
+  type ShiftSchedule,
   type WorkedHoursRow,
 } from "@/lib/reports";
 import {
   DEFAULT_LEGAL_PARAMETER_VALUES,
   legalParametersToDeadTimeWindows,
+  legalParametersToShiftSchedule,
 } from "@/lib/legalParameters";
 import type { AttendanceRecordWithRelations, Worker } from "@/lib/types";
 import { toBogotaWallClock, todayBogotaISODate } from "@/lib/timezone";
@@ -87,18 +89,28 @@ export default async function ReportesPage({
 
   const { data: legalParamsRows } = await supabase
     .from("legal_parameters")
-    .select("year, lunch_break_start, lunch_break_end");
+    .select("year, lunch_break_start, lunch_break_end, shift_start, grace_minutes");
 
   const deadTimeWindowsByYear = new Map<number, DeadTimeWindow[]>(
     (legalParamsRows ?? []).map((row) => [row.year, legalParametersToDeadTimeWindows(row)])
   );
   const defaultDeadTimeWindows = legalParametersToDeadTimeWindows(DEFAULT_LEGAL_PARAMETER_VALUES);
 
+  const shiftScheduleByYear = new Map<number, ShiftSchedule>(
+    (legalParamsRows ?? []).map((row) => [row.year, legalParametersToShiftSchedule(row)])
+  );
+  const defaultShiftSchedule = legalParametersToShiftSchedule(DEFAULT_LEGAL_PARAMETER_VALUES);
+
   const rows = buildWorkedHoursReport(
     (records as unknown as AttendanceRecordWithRelations[]) ?? [],
-    (date) =>
-      deadTimeWindowsByYear.get(toBogotaWallClock(date).getUTCFullYear()) ??
-      defaultDeadTimeWindows
+    {
+      getDeadTimeWindows: (date) =>
+        deadTimeWindowsByYear.get(toBogotaWallClock(date).getUTCFullYear()) ??
+        defaultDeadTimeWindows,
+      getShiftSchedule: (date) =>
+        shiftScheduleByYear.get(toBogotaWallClock(date).getUTCFullYear()) ??
+        defaultShiftSchedule,
+    }
   );
 
   const sortField: SortField =
@@ -215,7 +227,8 @@ export default async function ReportesPage({
         <p className="mb-4 text-xs text-neutral-400">
           Horas extras diurnas (HED) calculadas sobre una jornada estándar de{" "}
           {STANDARD_WORKDAY_HOURS} horas. Las horas trabajadas ya descuentan
-          el horario de almuerzo configurado en Nómina → Parámetros legales.
+          el horario de almuerzo y redondean la entrada según el tiempo de
+          espera configurados en Parámetros.
         </p>
 
         {totalRows === 0 ? (

@@ -5,6 +5,7 @@ import {
   bogotaDateKey,
   bogotaEndOfDayUTC,
   bogotaMidnightUTC,
+  fromBogotaWallClock,
   toBogotaWallClock,
 } from "@/lib/timezone";
 
@@ -47,6 +48,36 @@ export interface DeadTimeWindow {
   startMinute: number;
   endHour: number;
   endMinute: number;
+}
+
+/** Horario de entrada de la jornada + tolerancia, para redondear marcaciones. */
+export interface ShiftSchedule {
+  startHour: number;
+  startMinute: number;
+  /** Minutos de tolerancia sobre la hora de entrada (ver applyShiftGracePeriod). */
+  graceMinutes: number;
+}
+
+/**
+ * Aplica el "tiempo de espera" a una marcación de entrada: si `entrada` cae
+ * antes de la hora de entrada de la jornada, o hasta `graceMinutes` minutos
+ * después, se considera que marcó exactamente a esa hora (para no distorsionar
+ * el cálculo de horas trabajadas con pequeñas variaciones). Ejemplo: entrada
+ * 7:30, tolerancia 15 min → cualquier marcación hasta las 7:45 se cuenta como
+ * las 7:30 en punto. Fuera de la tolerancia, se conserva la hora real. Solo
+ * aplica a la entrada, nunca a la salida.
+ *
+ * `schedule.startHour`/`startMinute` son hora de pared de Bogotá — igual que
+ * `minutesInDailyWindow`, se opera sobre la representación "hora de pared de
+ * Bogotá como UTC" (ver lib/timezone.ts) para que el resultado no dependa de
+ * la zona horaria del proceso que ejecuta el cálculo.
+ */
+export function applyShiftGracePeriod(entrada: Date, schedule: ShiftSchedule): Date {
+  const bogotaEntrada = toBogotaWallClock(entrada);
+  const bogotaShiftStart = new Date(bogotaEntrada);
+  bogotaShiftStart.setUTCHours(schedule.startHour, schedule.startMinute, 0, 0);
+  const cutoff = new Date(bogotaShiftStart.getTime() + schedule.graceMinutes * 60_000);
+  return bogotaEntrada <= cutoff ? fromBogotaWallClock(bogotaShiftStart) : entrada;
 }
 
 /** Convierte "HH:MM" o "HH:MM:SS" a {hour, minute}. */
@@ -142,21 +173,35 @@ export function deadTimeMinutesBetween(start: Date, end: Date, windows: DeadTime
   return windows.reduce((sum, window) => sum + minutesInDailyWindow(start, end, window), 0);
 }
 
+/** Resolvers opcionales para `buildWorkedHoursReport`, por fecha de jornada. */
+export interface WorkedHoursReportOptions {
+  /**
+   * Resuelve las ventanas de hora muerta (ej. almuerzo) aplicables a la
+   * fecha de una jornada — puede variar por año porque el horario de
+   * almuerzo es parametrizable (ver lib/legalParameters.ts). Si no se pasa,
+   * no se descuenta ninguna hora muerta (comportamiento de nómina, que
+   * calcula sus propias categorías por separado).
+   */
+  getDeadTimeWindows?: (date: Date) => DeadTimeWindow[];
+  /**
+   * Resuelve el horario de entrada + tolerancia aplicable a la fecha de una
+   * jornada (ver lib/legalParameters.ts). Si se pasa, la entrada efectiva
+   * usada para calcular horas y expuesta en `entradaAt` queda redondeada por
+   * `applyShiftGracePeriod`; si no, se usa la marcación cruda tal cual.
+   */
+  getShiftSchedule?: (date: Date) => ShiftSchedule | null;
+}
+
 /**
  * Empareja entrada/salida por trabajador (en orden cronológico, alternan
  * porque el sistema ya fuerza esa alternancia al registrar asistencia) y
  * calcula horas trabajadas + horas extra diurnas por jornada.
- *
- * `getDeadTimeWindows` resuelve las ventanas de hora muerta (ej. almuerzo)
- * aplicables a la fecha de una jornada — puede variar por año porque el
- * horario de almuerzo es parametrizable (ver lib/legalParameters.ts). Si no
- * se pasa, no se descuenta ninguna hora muerta (comportamiento de nómina,
- * que calcula sus propias categorías por separado).
  */
 export function buildWorkedHoursReport(
   records: AttendanceRecordWithRelations[],
-  getDeadTimeWindows?: (date: Date) => DeadTimeWindow[]
+  options?: WorkedHoursReportOptions
 ): WorkedHoursRow[] {
+  const { getDeadTimeWindows, getShiftSchedule } = options ?? {};
   const byWorker = new Map<string, AttendanceRecordWithRelations[]>();
   for (const record of records) {
     const list = byWorker.get(record.worker_id) ?? [];
@@ -166,7 +211,13 @@ export function buildWorkedHoursReport(
 
   const rows: WorkedHoursRow[] = [];
 
+  const resolveEntradaDate = (rawDate: Date): Date => {
+    const schedule = getShiftSchedule?.(rawDate);
+    return schedule ? applyShiftGracePeriod(rawDate, schedule) : rawDate;
+  };
+
   const pushUnmatched = (entrada: AttendanceRecordWithRelations) => {
+    const entradaDate = resolveEntradaDate(new Date(entrada.recorded_at));
     rows.push({
       key: entrada.id,
       workerId: entrada.worker_id,
@@ -174,12 +225,12 @@ export function buildWorkedHoursReport(
       documentId: entrada.worker.document_id,
       projectName: entrada.project.name,
       date: toDateKey(entrada.recorded_at),
-      entradaAt: entrada.recorded_at,
+      entradaAt: entradaDate.toISOString(),
       salidaAt: null,
       hoursWorked: null,
       overtimeDay: null,
       nightHours: null,
-      isHoliday: isFestivo(new Date(entrada.recorded_at)),
+      isHoliday: isFestivo(entradaDate),
       holidayHours: null,
       hasCheckout: false,
     });
@@ -203,7 +254,7 @@ export function buildWorkedHoursReport(
       // filtrado. No hay forma de atribuirla a una jornada, se omite.
       if (!open) continue;
 
-      const entradaDate = new Date(open.recorded_at);
+      const entradaDate = resolveEntradaDate(new Date(open.recorded_at));
       const salidaDate = new Date(record.recorded_at);
 
       const rawHours = (salidaDate.getTime() - entradaDate.getTime()) / 3_600_000;
@@ -222,7 +273,7 @@ export function buildWorkedHoursReport(
         documentId: open.worker.document_id,
         projectName: open.project.name,
         date: toDateKey(open.recorded_at),
-        entradaAt: open.recorded_at,
+        entradaAt: entradaDate.toISOString(),
         salidaAt: record.recorded_at,
         hoursWorked,
         overtimeDay,

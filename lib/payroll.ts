@@ -1,7 +1,7 @@
 import type { AttendanceRecordWithRelations, LegalParameters, Project, Worker } from "@/lib/types";
 import { buildWorkedHoursReport, nightMinutesBetween, STANDARD_WORKDAY_HOURS } from "@/lib/reports";
 import { isFestivo } from "@/lib/colombianHolidays";
-import { arlPercentForLevel } from "@/lib/legalParameters";
+import { arlPercentForLevel, legalParametersToShiftSchedule } from "@/lib/legalParameters";
 
 /**
  * Motor de cálculo de nómina — replica las fórmulas reales de las 4
@@ -221,7 +221,10 @@ export function buildPayrollReport(
   options?: { includePrimas?: boolean }
 ): WorkerPayrollRow[] {
   const includePrimas = options?.includePrimas ?? false;
-  const sessions = buildWorkedHoursReport(records);
+  const shiftSchedule = legalParametersToShiftSchedule(legalParams);
+  const sessions = buildWorkedHoursReport(records, {
+    getShiftSchedule: () => shiftSchedule,
+  });
 
   const daysByWorker = new Map<string, Set<string>>();
   const bucketsByWorker = new Map<string, HourBuckets>();

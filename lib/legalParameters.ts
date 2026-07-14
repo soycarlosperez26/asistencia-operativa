@@ -1,5 +1,5 @@
 import type { LegalParameters } from "@/lib/types";
-import { parseTimeOfDay, type DeadTimeWindow } from "@/lib/reports";
+import { parseTimeOfDay, type DeadTimeWindow, type ShiftSchedule } from "@/lib/reports";
 
 /**
  * Valores por defecto para un año sin parámetros cargados todavía — los
@@ -7,6 +7,12 @@ import { parseTimeOfDay, type DeadTimeWindow } from "@/lib/reports";
  * (hoja HORAS EXTRAS, fila 8), más los porcentajes legales típicos
  * colombianos para los aportes/prestaciones agregados en la corrección de
  * specs del 2026-07-13. El admin los puede ajustar antes de guardar.
+ *
+ * `holiday_day_factor` (HFD) se actualizó de 1.8 a 1.9 el 2026-07-14: el
+ * recargo dominical/festivo subió de 80% a 90% desde el 1 de julio de 2026
+ * (Ley 2466 de 2025). Los demás factores festivos derivados (HFN, HEFD,
+ * HEFN) no se recalcularon — son combinaciones específicas de la plantilla
+ * real de la empresa, a confirmar aparte antes de tocarlos.
  */
 export const DEFAULT_LEGAL_PARAMETER_VALUES: Omit<
   LegalParameters,
@@ -17,7 +23,7 @@ export const DEFAULT_LEGAL_PARAMETER_VALUES: Omit<
   overtime_day_factor: 1.25,
   overtime_night_factor: 1.75,
   night_surcharge_factor: 0.35,
-  holiday_day_factor: 1.8,
+  holiday_day_factor: 1.9,
   holiday_night_surcharge_factor: 1.1,
   holiday_night_factor: 2.1,
   holiday_overtime_day_factor: 2.0,
@@ -25,6 +31,10 @@ export const DEFAULT_LEGAL_PARAMETER_VALUES: Omit<
   lunch_subsidy_per_day: 0,
   lunch_break_start: "12:00:00",
   lunch_break_end: "13:00:00",
+  shift_start: "07:30:00",
+  shift_end: "16:30:00",
+  grace_minutes: 0,
+  weekly_legal_hours: 42,
   health_employer_percent: 0.085,
   health_employee_percent: 0.04,
   pension_employer_percent: 0.12,
@@ -64,6 +74,22 @@ export function legalParametersToDeadTimeWindows(
       endMinute: end.minute,
     },
   ];
+}
+
+/**
+ * Horario de entrada + tolerancia a usar en `buildWorkedHoursReport` (ver
+ * lib/reports.ts, applyShiftGracePeriod) para redondear marcaciones de
+ * entrada cercanas a la hora de inicio de la jornada.
+ */
+export function legalParametersToShiftSchedule(
+  params: Pick<LegalParameters, "shift_start" | "grace_minutes">
+): ShiftSchedule {
+  const start = parseTimeOfDay(params.shift_start);
+  return {
+    startHour: start.hour,
+    startMinute: start.minute,
+    graceMinutes: params.grace_minutes,
+  };
 }
 
 export function arlPercentForLevel(

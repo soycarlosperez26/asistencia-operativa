@@ -9,7 +9,13 @@ import type { Profile } from "@/lib/types";
 import { NavLinks } from "./NavLinks";
 import { SignOutButton } from "./SignOutButton";
 
-export function MobileNav({ profile }: { profile: Profile }) {
+export function MobileNav({
+  profile,
+  parameterYears = [],
+}: {
+  profile: Profile;
+  parameterYears?: number[];
+}) {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -58,6 +64,7 @@ export function MobileNav({ profile }: { profile: Profile }) {
                 role={profile.role}
                 vertical
                 onNavigate={() => setOpen(false)}
+                parameterYears={parameterYears}
               />
             </div>
 

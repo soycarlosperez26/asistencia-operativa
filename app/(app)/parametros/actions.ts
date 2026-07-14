@@ -25,6 +25,14 @@ function parsePositiveNumber(formData: FormData, field: string): number | null {
   return value;
 }
 
+function parseNonNegativeInteger(formData: FormData, field: string): number | null {
+  const raw = String(formData.get(field) ?? "").trim();
+  if (!raw) return null;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) return null;
+  return value;
+}
+
 /** Valida un input type="time" ("HH:MM") y lo normaliza a "HH:MM:00". */
 function parseTimeField(formData: FormData, field: string): string | null {
   const raw = String(formData.get(field) ?? "").trim();
@@ -35,6 +43,7 @@ function parseTimeField(formData: FormData, field: string): string | null {
 const NUMERIC_FIELDS = [
   "minimum_wage",
   "transport_allowance",
+  "lunch_subsidy_per_day",
   "overtime_day_factor",
   "overtime_night_factor",
   "night_surcharge_factor",
@@ -43,7 +52,7 @@ const NUMERIC_FIELDS = [
   "holiday_night_factor",
   "holiday_overtime_day_factor",
   "holiday_overtime_night_factor",
-  "lunch_subsidy_per_day",
+  "weekly_legal_hours",
   "health_employer_percent",
   "health_employee_percent",
   "pension_employer_percent",
@@ -64,7 +73,7 @@ const NUMERIC_FIELDS = [
   "incapacidad_percent",
 ] as const;
 
-const TIME_FIELDS = ["lunch_break_start", "lunch_break_end"] as const;
+const TIME_FIELDS = ["shift_start", "shift_end", "lunch_break_start", "lunch_break_end"] as const;
 
 export async function saveLegalParameters(
   _prevState: ActionState,
@@ -92,21 +101,39 @@ export async function saveLegalParameters(
   );
 
   if (Object.values(timeFields).some((value) => value === null)) {
-    return { error: "El horario de almuerzo no es válido." };
+    return { error: "El horario de jornada o de almuerzo no es válido." };
+  }
+
+  const graceMinutes = parseNonNegativeInteger(formData, "grace_minutes");
+  if (graceMinutes === null) {
+    return { error: "El tiempo de espera debe ser un número entero mayor o igual a 0." };
   }
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("legal_parameters")
     .upsert(
-      { year, ...fields, ...timeFields, updated_at: new Date().toISOString() },
+      {
+        year,
+        ...fields,
+        ...timeFields,
+        grace_minutes: graceMinutes,
+        updated_at: new Date().toISOString(),
+      },
       { onConflict: "year" }
     );
 
   if (error) {
-    return { error: "No se pudieron guardar los parámetros legales." };
+    console.error("saveLegalParameters upsert error:", error);
+    return {
+      error: error.message
+        ? `No se pudieron guardar los parámetros legales: ${error.message}`
+        : "No se pudieron guardar los parámetros legales.",
+    };
   }
 
+  revalidatePath("/parametros/[year]", "page");
   revalidatePath("/nomina");
+  revalidatePath("/reportes");
   return { success: true };
 }

@@ -22,7 +22,7 @@ export function toBogotaWallClock(date: Date): Date {
 }
 
 /** Inverso de `toBogotaWallClock`: vuelve del instante "hora de pared" al instante UTC real. */
-function fromBogotaWallClock(wallClock: Date): Date {
+export function fromBogotaWallClock(wallClock: Date): Date {
   return new Date(wallClock.getTime() + BOGOTA_OFFSET_MS);
 }
 

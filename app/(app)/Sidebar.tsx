@@ -6,7 +6,13 @@ import type { Profile } from "@/lib/types";
 import { NavLinks } from "./NavLinks";
 import { SignOutButton } from "./SignOutButton";
 
-export function Sidebar({ profile }: { profile: Profile }) {
+export function Sidebar({
+  profile,
+  parameterYears = [],
+}: {
+  profile: Profile;
+  parameterYears?: number[];
+}) {
   return (
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-neutral-200 bg-white md:flex">
       <div className="flex items-center gap-3 border-b border-neutral-200 px-5 py-4">
@@ -17,7 +23,7 @@ export function Sidebar({ profile }: { profile: Profile }) {
       </div>
 
       <div className="flex-1 overflow-y-auto px-3 py-4">
-        <NavLinks role={profile.role} vertical />
+        <NavLinks role={profile.role} vertical parameterYears={parameterYears} />
       </div>
 
       <div className="flex items-center gap-3 border-t border-neutral-200 px-5 py-4">

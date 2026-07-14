@@ -2,25 +2,15 @@
 
 import { useActionState, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Profile, Project } from "@/lib/types";
-import { SupervisorFormModal, type AssignableUser } from "./SupervisorFormModal";
+import type { Project } from "@/lib/types";
 import { createProject, toggleProjectActive, type ActionState } from "./actions";
 
 const initialState: ActionState = {};
 
-export function ProjectsClient({
-  projects,
-  supervisorsByProject,
-  users,
-}: {
-  projects: Project[];
-  supervisorsByProject: Record<string, Profile[]>;
-  users: AssignableUser[];
-}) {
+export function ProjectsClient({ projects }: { projects: Project[] }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(createProject, initialState);
   const [formKey, setFormKey] = useState(0);
-  const [supervisorProject, setSupervisorProject] = useState<Project | null>(null);
   const [prevState, setPrevState] = useState(state);
 
   if (state !== prevState) {
@@ -33,8 +23,8 @@ export function ProjectsClient({
       <div>
         <h1 className="text-2xl font-bold text-neutral-900">Proyectos</h1>
         <p className="text-sm text-neutral-500">
-          Hasta 15 proyectos/obras activos. Cada uno tiene un supervisor
-          asignado.
+          Hasta 15 proyectos/obras activos. Cualquier supervisor puede
+          registrar asistencia en cualquiera de ellos.
         </p>
       </div>
 
@@ -47,17 +37,6 @@ export function ProjectsClient({
           action={formAction}
           className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end"
         >
-          <div className="sm:min-w-[160px] sm:flex-1">
-            <label className="mb-1 block text-sm font-medium text-neutral-700">
-              Código
-            </label>
-            <input
-              name="code"
-              placeholder="P001-OBRA"
-              required
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-            />
-          </div>
           <div className="sm:min-w-[220px] sm:flex-1">
             <label className="mb-1 block text-sm font-medium text-neutral-700">
               Nombre
@@ -93,64 +72,38 @@ export function ProjectsClient({
           <p className="text-sm text-neutral-500">Aún no hay proyectos.</p>
         ) : (
           <ul className="divide-y divide-neutral-100">
-            {projects.map((project) => {
-              const supervisors = supervisorsByProject[project.id] ?? [];
-              return (
-                <li key={project.id} className="py-3">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-                    <div>
-                      <p className="font-semibold text-neutral-900">
-                        {project.code} - {project.name}
-                      </p>
-                      <p className="text-sm text-neutral-500">
-                        <span
-                          className={
-                            project.active ? "text-brand-dark" : "text-neutral-400"
-                          }
-                        >
-                          {project.active ? "Activo" : "Inactivo"}
-                        </span>
-                        {" · "}
-                        {supervisors.length > 0
-                          ? `Supervisor: ${supervisors.map((s) => s.full_name).join(", ")}`
-                          : "Sin supervisor asignado"}
-                      </p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => setSupervisorProject(project)}
-                        className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 sm:flex-none"
+            {projects.map((project) => (
+              <li key={project.id} className="py-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+                  <div>
+                    <p className="font-semibold text-neutral-900">
+                      {project.name}
+                    </p>
+                    <p className="text-sm text-neutral-500">
+                      <span
+                        className={
+                          project.active ? "text-brand-dark" : "text-neutral-400"
+                        }
                       >
-                        Asignar supervisor
-                      </button>
-                      <button
-                        onClick={async () => {
-                          await toggleProjectActive(project.id, !project.active);
-                          router.refresh();
-                        }}
-                        className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 sm:flex-none"
-                      >
-                        {project.active ? "Desactivar" : "Activar"}
-                      </button>
-                    </div>
+                        {project.active ? "Activo" : "Inactivo"}
+                      </span>
+                    </p>
                   </div>
-                </li>
-              );
-            })}
+                  <button
+                    onClick={async () => {
+                      await toggleProjectActive(project.id, !project.active);
+                      router.refresh();
+                    }}
+                    className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                  >
+                    {project.active ? "Desactivar" : "Activar"}
+                  </button>
+                </div>
+              </li>
+            ))}
           </ul>
         )}
       </div>
-
-      {supervisorProject && (
-        <SupervisorFormModal
-          project={supervisorProject}
-          users={users}
-          onClose={() => {
-            setSupervisorProject(null);
-            router.refresh();
-          }}
-        />
-      )}
     </div>
   );
 }

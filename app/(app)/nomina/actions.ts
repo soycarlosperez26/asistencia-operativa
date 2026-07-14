@@ -25,6 +25,38 @@ function parsePositiveNumber(formData: FormData, field: string): number | null {
   return value;
 }
 
+const NUMERIC_FIELDS = [
+  "minimum_wage",
+  "transport_allowance",
+  "overtime_day_factor",
+  "overtime_night_factor",
+  "night_surcharge_factor",
+  "holiday_day_factor",
+  "holiday_night_surcharge_factor",
+  "holiday_night_factor",
+  "holiday_overtime_day_factor",
+  "holiday_overtime_night_factor",
+  "lunch_subsidy_per_day",
+  "health_employer_percent",
+  "health_employee_percent",
+  "pension_employer_percent",
+  "pension_employee_percent",
+  "fsp_employee_percent",
+  "caja_compensacion_percent",
+  "icbf_percent",
+  "sena_percent",
+  "cesantias_percent",
+  "cesantias_interes_percent",
+  "vacaciones_percent",
+  "primas_percent",
+  "arl_level_1_percent",
+  "arl_level_2_percent",
+  "arl_level_3_percent",
+  "arl_level_4_percent",
+  "arl_level_5_percent",
+  "incapacidad_percent",
+] as const;
+
 export async function saveLegalParameters(
   _prevState: ActionState,
   formData: FormData
@@ -38,19 +70,9 @@ export async function saveLegalParameters(
     return { error: "El año no es válido." };
   }
 
-  const fields = {
-    minimum_wage: parsePositiveNumber(formData, "minimum_wage"),
-    transport_allowance: parsePositiveNumber(formData, "transport_allowance"),
-    overtime_day_factor: parsePositiveNumber(formData, "overtime_day_factor"),
-    overtime_night_factor: parsePositiveNumber(formData, "overtime_night_factor"),
-    night_surcharge_factor: parsePositiveNumber(formData, "night_surcharge_factor"),
-    holiday_day_factor: parsePositiveNumber(formData, "holiday_day_factor"),
-    holiday_night_surcharge_factor: parsePositiveNumber(formData, "holiday_night_surcharge_factor"),
-    holiday_night_factor: parsePositiveNumber(formData, "holiday_night_factor"),
-    holiday_overtime_day_factor: parsePositiveNumber(formData, "holiday_overtime_day_factor"),
-    holiday_overtime_night_factor: parsePositiveNumber(formData, "holiday_overtime_night_factor"),
-    lunch_subsidy_per_day: parsePositiveNumber(formData, "lunch_subsidy_per_day"),
-  };
+  const fields = Object.fromEntries(
+    NUMERIC_FIELDS.map((field) => [field, parsePositiveNumber(formData, field)])
+  );
 
   if (Object.values(fields).some((value) => value === null)) {
     return { error: "Todos los valores son obligatorios y deben ser números válidos." };

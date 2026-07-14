@@ -6,13 +6,20 @@ import { WorkersClient } from "./WorkersClient";
 
 const PAGE_SIZE = 15;
 
+export type WorkerStatusFilter = "active" | "inactive" | "all";
+
 interface TrabajadoresSearchParams {
   q?: string;
   page?: string;
+  estado?: string;
 }
 
 function escapeOrFilterValue(value: string): string {
   return value.replace(/[,()]/g, "");
+}
+
+function parseStatusFilter(value: string | undefined): WorkerStatusFilter {
+  return value === "inactive" || value === "all" ? value : "active";
 }
 
 export default async function TrabajadoresPage({
@@ -27,6 +34,7 @@ export default async function TrabajadoresPage({
 
   const supabase = await createClient();
   const query = (params.q ?? "").trim();
+  const status = parseStatusFilter(params.estado);
   const orFilter = query
     ? `full_name.ilike.%${escapeOrFilterValue(query)}%,document_id.ilike.%${escapeOrFilterValue(query)}%`
     : null;
@@ -35,6 +43,7 @@ export default async function TrabajadoresPage({
     .from("workers")
     .select("id", { count: "exact", head: true });
   if (orFilter) countQuery = countQuery.or(orFilter);
+  if (status !== "all") countQuery = countQuery.eq("active", status === "active");
   const { count } = await countQuery;
 
   const totalCount = count ?? 0;
@@ -43,9 +52,12 @@ export default async function TrabajadoresPage({
 
   let workersQuery = supabase
     .from("workers")
-    .select("id, full_name, document_id, qr_token, active, created_at, monthly_salary")
+    .select(
+      "id, full_name, document_id, qr_token, active, created_at, monthly_salary, birth_date, blood_type, email, phone, job_title, arl_risk_level"
+    )
     .order("full_name");
   if (orFilter) workersQuery = workersQuery.or(orFilter);
+  if (status !== "all") workersQuery = workersQuery.eq("active", status === "active");
 
   const rangeFrom = (currentPage - 1) * PAGE_SIZE;
   const rangeTo = rangeFrom + PAGE_SIZE - 1;
@@ -58,6 +70,7 @@ export default async function TrabajadoresPage({
       page={currentPage}
       totalPages={totalPages}
       query={query}
+      status={status}
     />
   );
 }

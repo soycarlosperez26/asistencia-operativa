@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useGps } from "@/lib/useGps";
-import { computePresentCount } from "@/lib/attendance";
+import { ALL_PROJECTS_VALUE, computePresentCount } from "@/lib/attendance";
 import { GPS_ENABLED } from "@/lib/config";
 import { QrScannerModal } from "@/components/QrScannerModal";
 import type { AttendanceRecordWithRelations, Project } from "@/lib/types";
@@ -12,9 +12,9 @@ import { lookupWorkerByQr, registerAttendance } from "./actions";
 import { ObservationsModal } from "./ObservationsModal";
 
 interface AttendanceClientProps {
-  project: Project;
-  isAdmin: boolean;
+  project: Project | null;
   projects: Project[];
+  selectedValue: string;
   initialRecords: AttendanceRecordWithRelations[];
 }
 
@@ -25,11 +25,12 @@ interface PendingScan {
 
 export function AttendanceClient({
   project,
-  isAdmin,
   projects,
+  selectedValue,
   initialRecords,
 }: AttendanceClientProps) {
   const router = useRouter();
+  const viewingAll = project === null;
   const [records, setRecords] = useState(initialRecords);
   const [prevInitialRecords, setPrevInitialRecords] = useState(initialRecords);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -48,14 +49,14 @@ export function AttendanceClient({
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel(`attendance-${project.id}`)
+      .channel(`attendance-${project?.id ?? "all"}`)
       .on(
         "postgres_changes",
         {
           event: "INSERT",
           schema: "public",
           table: "attendance_records",
-          filter: `project_id=eq.${project.id}`,
+          ...(project ? { filter: `project_id=eq.${project.id}` } : {}),
         },
         async () => {
           router.refresh();
@@ -66,7 +67,7 @@ export function AttendanceClient({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [project.id, router]);
+  }, [project, router]);
 
   const presentCount = useMemo(() => computePresentCount(records), [records]);
 
@@ -88,7 +89,7 @@ export function AttendanceClient({
   }
 
   async function handleConfirmObservations(observations: string) {
-    if (!pendingScan) return;
+    if (!pendingScan || !project) return;
     setPending(true);
     setFeedback(null);
 
@@ -132,7 +133,8 @@ export function AttendanceClient({
         </div>
         <button
           onClick={() => setScannerOpen(true)}
-          disabled={pending}
+          disabled={pending || viewingAll}
+          title={viewingAll ? "Selecciona un proyecto para registrar asistencia." : undefined}
           className="w-full rounded-lg bg-brand-dark px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-brand disabled:opacity-60 sm:w-auto"
         >
           {pending ? "Registrando..." : "Registrar Asistencia"}
@@ -157,24 +159,25 @@ export function AttendanceClient({
         </h2>
 
         <label className="mb-1 block text-sm font-medium text-neutral-700">
-          Proyecto {isAdmin && <span className="text-red-500">*</span>}
+          Proyecto
         </label>
-        {isAdmin ? (
-          <select
-            value={project.id}
-            onChange={(e) => router.push(`/asistencia?project=${e.target.value}`)}
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm text-neutral-900 outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-          >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.code} - {p.name}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-sm text-neutral-800">
-            {project.code} - {project.name}
-          </div>
+        <select
+          value={selectedValue}
+          onChange={(e) => router.push(`/asistencia?project=${e.target.value}`)}
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm text-neutral-900 outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+        >
+          <option value={ALL_PROJECTS_VALUE}>TODOS LOS PROYECTOS</option>
+          {projects.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        {viewingAll && (
+          <p className="mt-2 text-xs text-neutral-500">
+            Estás viendo la actividad de todos los proyectos. Selecciona uno
+            específico para poder registrar asistencia.
+          </p>
         )}
 
         <div className="mt-6">
@@ -213,7 +216,7 @@ export function AttendanceClient({
                   >
                     {record.type.toUpperCase()}
                   </span>{" "}
-                  · Doc: {record.worker.document_id} · {record.project.code} · Por:{" "}
+                  · Doc: {record.worker.document_id} · {record.project.name} · Por:{" "}
                   {record.supervisor?.full_name ?? "Supervisor"}
                 </p>
                 {record.observations && (

@@ -44,7 +44,73 @@ function CategoryList({ row }: { row: WorkerPayrollRow }) {
           </li>
         ))}
       </ul>
+      <ContributionsBreakdown row={row} />
     </>
+  );
+}
+
+function ContributionsBreakdown({ row }: { row: WorkerPayrollRow }) {
+  const cost = row.employerCost;
+  return (
+    <div className="mt-3 border-t border-neutral-200 pt-3">
+      <p className="mb-2 text-xs font-semibold uppercase text-neutral-500">
+        Aportes, prestaciones y descuentos adicionales
+      </p>
+      <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-neutral-700">
+        <li className="flex justify-between">
+          <span>Primas (devengado)</span>
+          <Money value={row.primas} />
+        </li>
+        <li className="flex justify-between">
+          <span>Incapacidad (devengado)</span>
+          <Money value={row.incapacidad} />
+        </li>
+        <li className="flex justify-between text-red-600">
+          <span>Descuento FSP</span>
+          <Money value={row.fspDeduction} />
+        </li>
+        <li className="flex justify-between">
+          <span>Salud empleador</span>
+          <Money value={cost.healthEmployer} />
+        </li>
+        <li className="flex justify-between">
+          <span>Pensión empleador</span>
+          <Money value={cost.pensionEmployer} />
+        </li>
+        <li className="flex justify-between">
+          <span>Caja de compensación</span>
+          <Money value={cost.cajaCompensacion} />
+        </li>
+        <li className="flex justify-between">
+          <span>ICBF</span>
+          <Money value={cost.icbf} />
+        </li>
+        <li className="flex justify-between">
+          <span>SENA</span>
+          <Money value={cost.sena} />
+        </li>
+        <li className="flex justify-between">
+          <span>Cesantías</span>
+          <Money value={cost.cesantias} />
+        </li>
+        <li className="flex justify-between">
+          <span>Intereses cesantías</span>
+          <Money value={cost.cesantiasInteres} />
+        </li>
+        <li className="flex justify-between">
+          <span>Vacaciones</span>
+          <Money value={cost.vacaciones} />
+        </li>
+        <li className="flex justify-between">
+          <span>ARL (nivel {row.arlRiskLevel})</span>
+          <Money value={cost.arl} />
+        </li>
+      </ul>
+      <p className="mt-2 flex justify-between text-xs font-semibold text-neutral-900">
+        <span>Costo empleador total (no afecta el neto)</span>
+        <Money value={cost.total} />
+      </p>
+    </div>
   );
 }
 
@@ -192,8 +258,8 @@ export function PayrollTable({
                 )}
                 <p className="mt-0.5 text-xs text-neutral-500">
                   {row.daysWorked} días trabajados
-                  {row.projectCodes.length > 0 &&
-                    ` · ${row.projectCodes.join(", ")}`}
+                  {row.projectNames.length > 0 &&
+                    ` · ${row.projectNames.join(", ")}`}
                 </p>
               </div>
               <Money
@@ -286,8 +352,8 @@ export function PayrollTable({
                     )}
                   </td>
                   <td className="px-3 py-2 text-neutral-600">
-                    {row.projectCodes.length > 0
-                      ? row.projectCodes.join(", ")
+                    {row.projectNames.length > 0
+                      ? row.projectNames.join(", ")
                       : "-"}
                   </td>
                   <td className="px-3 py-2 text-neutral-600">{row.daysWorked}</td>
@@ -323,6 +389,13 @@ export function PayrollTable({
                     </div>
                   </td>
                 </tr>
+                {expanded === row.workerId && (
+                  <tr>
+                    <td colSpan={10} className="bg-neutral-50 px-3 py-3">
+                      <CategoryList row={row} />
+                    </td>
+                  </tr>
+                )}
               </Fragment>
             ))}
           </tbody>

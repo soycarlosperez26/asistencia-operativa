@@ -27,7 +27,7 @@ export function ExportExcelButton({ rows }: { rows: WorkedHoursRow[] }) {
       [
         row.workerName,
         row.documentId,
-        `${row.projectCode} - ${row.projectName}`,
+        row.projectName,
         formatReportDate(row.date),
         formatReportTime(row.entradaAt),
         row.salidaAt ? formatReportTime(row.salidaAt) : "Sin Marcación",

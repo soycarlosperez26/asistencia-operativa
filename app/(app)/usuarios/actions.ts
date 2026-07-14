@@ -30,15 +30,11 @@ export async function createUser(
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
   const role = String(formData.get("role") ?? "supervisor") as UserRole;
-  const projectId = String(formData.get("project_id") ?? "").trim() || null;
 
   if (!fullName || !email || password.length < 8) {
     return {
       error: "Completa nombre y correo; la contraseña debe tener al menos 8 caracteres.",
     };
-  }
-  if (role === "supervisor" && !projectId) {
-    return { error: "Selecciona el proyecto del supervisor." };
   }
 
   const admin = createAdminClient();
@@ -60,7 +56,6 @@ export async function createUser(
     id: created.user.id,
     full_name: fullName,
     role,
-    project_id: role === "supervisor" ? projectId : null,
   });
 
   if (profileError) {
@@ -74,8 +69,7 @@ export async function createUser(
 
 export async function updateUserRole(
   userId: string,
-  role: UserRole,
-  projectId: string | null
+  role: UserRole
 ): Promise<ActionState> {
   const profile = await requireAdmin();
   if (!profile) {
@@ -84,14 +78,11 @@ export async function updateUserRole(
   if (profile.id === userId) {
     return { error: "No puedes cambiar tu propio rol." };
   }
-  if (role === "supervisor" && !projectId) {
-    return { error: "Selecciona el proyecto del supervisor." };
-  }
 
   const admin = createAdminClient();
   const { error } = await admin
     .from("profiles")
-    .update({ role, project_id: role === "supervisor" ? projectId : null })
+    .update({ role })
     .eq("id", userId);
 
   if (error) {
@@ -99,7 +90,6 @@ export async function updateUserRole(
   }
 
   revalidatePath("/usuarios");
-  revalidatePath("/proyectos");
   return { success: true };
 }
 
@@ -143,6 +133,5 @@ export async function deleteUser(userId: string): Promise<ActionState> {
   }
 
   revalidatePath("/usuarios");
-  revalidatePath("/proyectos");
   return { success: true };
 }

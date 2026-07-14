@@ -41,10 +41,23 @@ function buildProjectSheetRows(rows: WorkerPayrollRow[], from: string, to: strin
     "Total extras",
     "Auxilio transporte",
     "Subsidio almuerzo",
+    "Primas",
+    "Incapacidad",
     "Total devengado",
-    "Salud",
-    "Pensión",
+    "Salud (trabajador)",
+    "Pensión (trabajador)",
+    "FSP (trabajador)",
     "Neto a pagar",
+    "Salud (empleador)",
+    "Pensión (empleador)",
+    "Caja de compensación",
+    "ICBF",
+    "SENA",
+    "Cesantías",
+    "Intereses cesantías",
+    "Vacaciones",
+    "ARL",
+    "Costo empleador total",
   ];
 
   const dataRows = rows.map((row, index) => {
@@ -64,12 +77,28 @@ function buildProjectSheetRows(rows: WorkerPayrollRow[], from: string, to: strin
       row.extrasTotal,
       row.transportAllowance,
       row.lunchSubsidy,
+      row.primas,
+      row.incapacidad,
       row.totalEarned,
       row.healthDeduction,
       row.pensionDeduction,
+      row.fspDeduction,
       row.netPay,
+      row.employerCost.healthEmployer,
+      row.employerCost.pensionEmployer,
+      row.employerCost.cajaCompensacion,
+      row.employerCost.icbf,
+      row.employerCost.sena,
+      row.employerCost.cesantias,
+      row.employerCost.cesantiasInteres,
+      row.employerCost.vacaciones,
+      row.employerCost.arl,
+      row.employerCost.total,
     ];
   });
+
+  const sum = (selector: (row: WorkerPayrollRow) => number) =>
+    rows.reduce((s, r) => s + selector(r), 0);
 
   const totalsRow = [
     "",
@@ -77,7 +106,7 @@ function buildProjectSheetRows(rows: WorkerPayrollRow[], from: string, to: strin
     "TOTAL",
     "",
     "",
-    rows.reduce((s, r) => s + r.basico, 0),
+    sum((r) => r.basico),
     ...CATEGORY_ORDER.flatMap((key) => {
       const hours = rows.reduce(
         (s, r) => s + (r.categories.find((c) => c.key === key)?.hours ?? 0),
@@ -89,13 +118,26 @@ function buildProjectSheetRows(rows: WorkerPayrollRow[], from: string, to: strin
       );
       return [hours, value];
     }),
-    rows.reduce((s, r) => s + r.extrasTotal, 0),
-    rows.reduce((s, r) => s + r.transportAllowance, 0),
-    rows.reduce((s, r) => s + r.lunchSubsidy, 0),
-    rows.reduce((s, r) => s + r.totalEarned, 0),
-    rows.reduce((s, r) => s + r.healthDeduction, 0),
-    rows.reduce((s, r) => s + r.pensionDeduction, 0),
-    rows.reduce((s, r) => s + r.netPay, 0),
+    sum((r) => r.extrasTotal),
+    sum((r) => r.transportAllowance),
+    sum((r) => r.lunchSubsidy),
+    sum((r) => r.primas),
+    sum((r) => r.incapacidad),
+    sum((r) => r.totalEarned),
+    sum((r) => r.healthDeduction),
+    sum((r) => r.pensionDeduction),
+    sum((r) => r.fspDeduction),
+    sum((r) => r.netPay),
+    sum((r) => r.employerCost.healthEmployer),
+    sum((r) => r.employerCost.pensionEmployer),
+    sum((r) => r.employerCost.cajaCompensacion),
+    sum((r) => r.employerCost.icbf),
+    sum((r) => r.employerCost.sena),
+    sum((r) => r.employerCost.cesantias),
+    sum((r) => r.employerCost.cesantiasInteres),
+    sum((r) => r.employerCost.vacaciones),
+    sum((r) => r.employerCost.arl),
+    sum((r) => r.employerCost.total),
   ];
 
   return [
@@ -125,20 +167,20 @@ export function PayrollExcelExport({
 
     const summaryHeader = [
       "Proyecto",
-      "Código",
       "Trabajadores",
       "Total básico",
       "Total extras",
       "Costo nómina (neto)",
+      "Costo aportes empleador",
       "Sin salario cargado",
     ];
     const summaryRows = payrollByProject.map((p) => [
       p.project.name,
-      p.project.code,
       p.summary.workersCount,
       p.summary.totalBasico,
       p.summary.totalExtras,
       p.summary.totalNomina,
+      p.summary.totalEmployerCost,
       p.summary.workersMissingSalary,
     ]);
     const summarySheet = XLSX.utils.aoa_to_sheet([
@@ -154,7 +196,7 @@ export function PayrollExcelExport({
       const sheet = XLSX.utils.aoa_to_sheet(
         buildProjectSheetRows(entry.rows, from, to)
       );
-      const sheetName = sanitizeSheetName(entry.project.code, usedNames);
+      const sheetName = sanitizeSheetName(entry.project.name, usedNames);
       XLSX.utils.book_append_sheet(workbook, sheet, sheetName);
     }
 

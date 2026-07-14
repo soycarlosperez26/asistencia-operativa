@@ -1,6 +1,7 @@
 import type { AttendanceRecordWithRelations, LegalParameters, Project, Worker } from "@/lib/types";
 import { buildWorkedHoursReport, STANDARD_WORKDAY_HOURS } from "@/lib/reports";
 import { isFestivo } from "@/lib/colombianHolidays";
+import { arlPercentForLevel } from "@/lib/legalParameters";
 
 /**
  * Motor de cálculo de nómina — replica las fórmulas reales de las 4
@@ -25,8 +26,6 @@ import { isFestivo } from "@/lib/colombianHolidays";
 const NIGHT_START_HOUR = 19;
 const NIGHT_END_HOUR = 6;
 const MONTH_HOURS_BASE = 240;
-const EMPLOYEE_HEALTH_PCT = 0.04;
-const EMPLOYEE_PENSION_PCT = 0.04;
 const TRANSPORT_ALLOWANCE_SALARY_CAP_MULTIPLIER = 2;
 
 function round2(value: number): number {
@@ -127,24 +126,50 @@ export interface PayrollCategory {
   value: number;
 }
 
+/**
+ * Costo de aportes y prestaciones a cargo del empleador — no afecta el neto
+ * a pagar del trabajador, es informativo para el costo total de nómina por
+ * proyecto (agregado en la corrección de specs del 2026-07-13).
+ */
+export interface EmployerCost {
+  healthEmployer: number;
+  pensionEmployer: number;
+  cajaCompensacion: number;
+  icbf: number;
+  sena: number;
+  cesantias: number;
+  cesantiasInteres: number;
+  vacaciones: number;
+  arl: number;
+  total: number;
+}
+
 export interface WorkerPayrollRow {
   workerId: string;
   workerName: string;
   documentId: string;
   monthlySalary: number | null;
   missingSalary: boolean;
+  arlRiskLevel: number;
   daysWorked: number;
-  /** Códigos de los proyectos en los que el trabajador marcó asistencia en el período. */
-  projectCodes: string[];
+  /** Nombres de los proyectos en los que el trabajador marcó asistencia en el período. */
+  projectNames: string[];
   categories: PayrollCategory[];
   basico: number;
   extrasTotal: number;
   transportAllowance: number;
   lunchSubsidy: number;
+  /** Primas de servicios acumuladas del período (se pagan al trabajador). */
+  primas: number;
+  /** Incapacidades del período, como % del básico (se pagan al trabajador). */
+  incapacidad: number;
   totalEarned: number;
   healthDeduction: number;
   pensionDeduction: number;
+  /** FSP — fondo de solidaridad pensional, descontado del trabajador. */
+  fspDeduction: number;
   netPay: number;
+  employerCost: EmployerCost;
 }
 
 function buildCategories(buckets: HourBuckets, salary: number, params: LegalParameters): PayrollCategory[] {
@@ -218,7 +243,10 @@ function buildCategories(buckets: HourBuckets, salary: number, params: LegalPara
  */
 export function buildPayrollReport(
   records: AttendanceRecordWithRelations[],
-  workers: Pick<Worker, "id" | "full_name" | "document_id" | "monthly_salary">[],
+  workers: Pick<
+    Worker,
+    "id" | "full_name" | "document_id" | "monthly_salary" | "arl_risk_level"
+  >[],
   legalParams: LegalParameters
 ): WorkerPayrollRow[] {
   const sessions = buildWorkedHoursReport(records);
@@ -233,7 +261,7 @@ export function buildPayrollReport(
     daysByWorker.set(session.workerId, days);
 
     const projects = projectsByWorker.get(session.workerId) ?? new Set<string>();
-    projects.add(session.projectCode);
+    projects.add(session.projectName);
     projectsByWorker.set(session.workerId, projects);
 
     if (!session.hasCheckout || !session.salidaAt) continue;
@@ -263,13 +291,43 @@ export function buildPayrollReport(
       : 0;
 
     const lunchSubsidy = round2(legalParams.lunch_subsidy_per_day * daysWorked);
+    const primas = round2(basico * legalParams.primas_percent);
+    const incapacidad = round2(basico * legalParams.incapacidad_percent);
 
-    const totalEarned = round2(basico + extrasTotal + transportAllowance + lunchSubsidy);
-    const healthDeduction = round2(basico * EMPLOYEE_HEALTH_PCT);
-    const pensionDeduction = round2(basico * EMPLOYEE_PENSION_PCT);
-    const netPay = round2(totalEarned - healthDeduction - pensionDeduction);
+    const totalEarned = round2(
+      basico + extrasTotal + transportAllowance + lunchSubsidy + primas + incapacidad
+    );
+    const healthDeduction = round2(basico * legalParams.health_employee_percent);
+    const pensionDeduction = round2(basico * legalParams.pension_employee_percent);
+    const fspDeduction = round2(basico * legalParams.fsp_employee_percent);
+    const netPay = round2(totalEarned - healthDeduction - pensionDeduction - fspDeduction);
 
-    const projectCodes = [...(projectsByWorker.get(worker.id) ?? [])].sort();
+    const arlPercent = arlPercentForLevel(legalParams, worker.arl_risk_level);
+    const employerCost: EmployerCost = {
+      healthEmployer: round2(basico * legalParams.health_employer_percent),
+      pensionEmployer: round2(basico * legalParams.pension_employer_percent),
+      cajaCompensacion: round2(basico * legalParams.caja_compensacion_percent),
+      icbf: round2(basico * legalParams.icbf_percent),
+      sena: round2(basico * legalParams.sena_percent),
+      cesantias: round2(basico * legalParams.cesantias_percent),
+      cesantiasInteres: round2(basico * legalParams.cesantias_interes_percent),
+      vacaciones: round2(basico * legalParams.vacaciones_percent),
+      arl: round2(basico * arlPercent),
+      total: 0,
+    };
+    employerCost.total = round2(
+      employerCost.healthEmployer +
+        employerCost.pensionEmployer +
+        employerCost.cajaCompensacion +
+        employerCost.icbf +
+        employerCost.sena +
+        employerCost.cesantias +
+        employerCost.cesantiasInteres +
+        employerCost.vacaciones +
+        employerCost.arl
+    );
+
+    const projectNames = [...(projectsByWorker.get(worker.id) ?? [])].sort();
 
     rows.push({
       workerId: worker.id,
@@ -277,17 +335,22 @@ export function buildPayrollReport(
       documentId: worker.document_id,
       monthlySalary: worker.monthly_salary,
       missingSalary,
+      arlRiskLevel: worker.arl_risk_level,
       daysWorked,
-      projectCodes,
+      projectNames,
       categories,
       basico,
       extrasTotal,
       transportAllowance,
       lunchSubsidy,
+      primas,
+      incapacidad,
       totalEarned,
       healthDeduction,
       pensionDeduction,
+      fspDeduction,
       netPay,
+      employerCost,
     });
   }
 
@@ -299,6 +362,7 @@ export interface PayrollSummary {
   totalBasico: number;
   totalExtras: number;
   totalNomina: number;
+  totalEmployerCost: number;
   workersMissingSalary: number;
 }
 
@@ -308,13 +372,14 @@ export function summarizePayroll(rows: WorkerPayrollRow[]): PayrollSummary {
     totalBasico: round2(rows.reduce((sum, r) => sum + r.basico, 0)),
     totalExtras: round2(rows.reduce((sum, r) => sum + r.extrasTotal, 0)),
     totalNomina: round2(rows.reduce((sum, r) => sum + r.netPay, 0)),
+    totalEmployerCost: round2(rows.reduce((sum, r) => sum + r.employerCost.total, 0)),
     workersMissingSalary: rows.filter((r) => r.missingSalary).length,
   };
 }
 
 /** Liquidación de nómina de un proyecto para el período — una "hoja" del consolidado. */
 export interface PayrollByProject {
-  project: Pick<Project, "id" | "code" | "name">;
+  project: Pick<Project, "id" | "name">;
   rows: WorkerPayrollRow[];
   summary: PayrollSummary;
 }

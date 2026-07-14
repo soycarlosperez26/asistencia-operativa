@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/supabase/profile";
-import type { Profile, Project } from "@/lib/types";
+import type { Project } from "@/lib/types";
 import { ProjectsClient } from "./ProjectsClient";
-import type { AssignableUser } from "./SupervisorFormModal";
 
 export default async function ProyectosPage() {
   const profile = await getCurrentProfile();
@@ -12,46 +10,11 @@ export default async function ProyectosPage() {
   if (profile.role !== "admin") redirect("/asistencia");
 
   const supabase = await createClient();
-  const admin = createAdminClient();
 
-  const [{ data: projects }, { data: profiles }, { data: authUsers }] =
-    await Promise.all([
-      supabase
-        .from("projects")
-        .select("id, code, name, active, created_at")
-        .order("code"),
-      supabase
-        .from("profiles")
-        .select("id, full_name, role, project_id, created_at")
-        .order("full_name"),
-      admin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-    ]);
+  const { data: projects } = await supabase
+    .from("projects")
+    .select("id, name, active, created_at")
+    .order("name");
 
-  const emailById = new Map(
-    (authUsers?.users ?? []).map((user) => [user.id, user.email ?? ""])
-  );
-
-  const allProfiles = (profiles as Profile[]) ?? [];
-
-  const supervisorsByProject: Record<string, Profile[]> = {};
-  for (const p of allProfiles) {
-    if (p.role !== "supervisor" || !p.project_id) continue;
-    (supervisorsByProject[p.project_id] ??= []).push(p);
-  }
-
-  const users: AssignableUser[] = allProfiles.map((p) => ({
-    id: p.id,
-    full_name: p.full_name,
-    email: emailById.get(p.id) ?? "",
-    role: p.role,
-    project_id: p.project_id,
-  }));
-
-  return (
-    <ProjectsClient
-      projects={(projects as Project[]) ?? []}
-      supervisorsByProject={supervisorsByProject}
-      users={users}
-    />
-  );
+  return <ProjectsClient projects={(projects as Project[]) ?? []} />;
 }

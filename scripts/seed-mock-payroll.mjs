@@ -49,8 +49,8 @@ const PERIOD_START = new Date(2026, 5, 1); // 1 de junio 2026
 // Prefijo de cédula por proyecto — permite identificar y limpiar este set
 // mock en reruns sin tocar trabajadores reales u otros datos mock.
 const MOCK_PROJECTS = [
-  { code: "P100-TORRE-NORTE", name: "Torre Norte - Mantenimiento", docPrefix: "990100" },
-  { code: "P200-TORRE-SUR", name: "Torre Sur - Instalaciones", docPrefix: "990200" },
+  { name: "Torre Norte - Mantenimiento", docPrefix: "990100" },
+  { name: "Torre Sur - Instalaciones", docPrefix: "990200" },
 ];
 
 const SALARY_TIERS = [1750905, 2050905, 2350905];
@@ -124,31 +124,31 @@ async function main() {
   console.log("Consultando proyectos existentes...");
   const { data: existingProjects, error: projectsError } = await supabase
     .from("projects")
-    .select("id, code, name");
+    .select("id, name");
   if (projectsError) throw projectsError;
 
   const projects = [];
   for (const mockProject of MOCK_PROJECTS) {
-    const found = (existingProjects ?? []).find((p) => p.code === mockProject.code);
+    const found = (existingProjects ?? []).find((p) => p.name === mockProject.name);
     if (found) {
       projects.push({ ...found, docPrefix: mockProject.docPrefix });
       continue;
     }
-    console.log(`Creando proyecto mock ${mockProject.code}...`);
+    console.log(`Creando proyecto mock ${mockProject.name}...`);
     const { data: inserted, error } = await supabase
       .from("projects")
-      .insert({ code: mockProject.code, name: mockProject.name })
-      .select("id, code, name")
+      .insert({ name: mockProject.name })
+      .select("id, name")
       .single();
     if (error) throw error;
     projects.push({ ...inserted, docPrefix: mockProject.docPrefix });
   }
-  console.log(`Proyectos: ${projects.map((p) => p.code).join(", ")}`);
+  console.log(`Proyectos: ${projects.map((p) => p.name).join(", ")}`);
 
   console.log("Consultando perfiles (admin/supervisor) existentes...");
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
-    .select("id, role, project_id");
+    .select("id, role");
   if (profilesError) throw profilesError;
 
   if (!profiles || profiles.length === 0) {
@@ -159,10 +159,10 @@ async function main() {
     process.exit(1);
   }
 
-  const admin = profiles.find((p) => p.role === "admin") ?? profiles[0];
-  const supervisorByProject = new Map(
-    profiles.filter((p) => p.role === "supervisor" && p.project_id).map((p) => [p.project_id, p.id])
-  );
+  // Cualquier supervisor o admin puede registrar asistencia en cualquier
+  // proyecto (los supervisores ya no están atados a uno solo), así que
+  // alcanza con un único perfil para firmar todas las marcaciones mock.
+  const signer = profiles.find((p) => p.role === "admin") ?? profiles[0];
 
   console.log("Consultando trabajadores existentes...");
   const { data: existingWorkers, error: workersError } = await supabase
@@ -217,7 +217,7 @@ async function main() {
 
   const records = [];
   for (const project of projects) {
-    const supervisorId = supervisorByProject.get(project.id) ?? admin.id;
+    const supervisorId = signer.id;
     const docs = workersByProject.get(project.id);
 
     for (const doc of docs) {
@@ -257,7 +257,7 @@ async function main() {
   await insertInChunks("attendance_records", records);
 
   console.log("Listo:");
-  console.log(`  Proyectos: ${projects.map((p) => p.code).join(", ")}`);
+  console.log(`  Proyectos: ${projects.map((p) => p.name).join(", ")}`);
   console.log(`  Trabajadores mock: ${insertedWorkers.length} (${WORKERS_PER_PROJECT} por proyecto)`);
   console.log(`  Días hábiles cubiertos: ${workdays.length}`);
   console.log(`  Registros de asistencia creados: ${records.length}`);

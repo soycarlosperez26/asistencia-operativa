@@ -22,6 +22,12 @@ export function WorkerSearchBar({ initialQuery }: { initialQuery: string }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Precarga la lista de trabajadores activos para que el desplegable tenga
+  // contenido apenas se hace foco, sin esperar a que el usuario escriba.
+  useEffect(() => {
+    searchWorkerSuggestions("").then(setSuggestions);
+  }, []);
+
   function navigate(query: string) {
     const params = new URLSearchParams();
     if (query) params.set("q", query);
@@ -33,17 +39,10 @@ export function WorkerSearchBar({ initialQuery }: { initialQuery: string }) {
     setValue(next);
     if (debounceRef.current) clearTimeout(debounceRef.current);
 
-    if (!next.trim()) {
-      setSuggestions([]);
-      setOpen(false);
-      navigate("");
-      return;
-    }
-
     debounceRef.current = setTimeout(async () => {
       const results = await searchWorkerSuggestions(next);
       setSuggestions(results);
-      setOpen(results.length > 0);
+      setOpen(true);
       navigate(next);
     }, 300);
   }
@@ -59,16 +58,35 @@ export function WorkerSearchBar({ initialQuery }: { initialQuery: string }) {
       <label className="mb-1 block text-sm font-medium text-neutral-700">
         Buscar trabajador
       </label>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="absolute right-2 top-[27px] rounded-md p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600"
+        aria-label="Mostrar todos los trabajadores activos"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
       <input
         value={value}
         onChange={(event) => handleChange(event.target.value)}
-        onFocus={() => suggestions.length > 0 && setOpen(true)}
+        onFocus={() => setOpen(true)}
         placeholder="Nombre o documento..."
         autoComplete="off"
-        className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+        className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 pr-9 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
       />
       {open && suggestions.length > 0 && (
-        <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-lg">
+        <ul className="absolute z-10 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-neutral-200 bg-white shadow-lg">
           {suggestions.map((suggestion) => (
             <li key={suggestion.id}>
               <button

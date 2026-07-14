@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { nextAttendanceType } from "@/lib/attendance";
+import { MIN_MINUTES_BEFORE_CHECKOUT, minutesSince, nextAttendanceType } from "@/lib/attendance";
 import type { AttendanceRecordWithRelations, AttendanceType } from "@/lib/types";
 
 export interface RegisterAttendanceInput {
@@ -89,13 +89,23 @@ export async function registerAttendance(
 
   const { data: lastRecord } = await supabase
     .from("attendance_records")
-    .select("type")
+    .select("type, recorded_at")
     .eq("worker_id", worker.id)
     .order("recorded_at", { ascending: false })
     .limit(1)
-    .maybeSingle<{ type: AttendanceType }>();
+    .maybeSingle<{ type: AttendanceType; recorded_at: string }>();
 
   const type = nextAttendanceType(lastRecord?.type ?? null);
+
+  if (
+    type === "salida" &&
+    lastRecord &&
+    minutesSince(lastRecord.recorded_at) < MIN_MINUTES_BEFORE_CHECKOUT
+  ) {
+    return {
+      error: `${worker.full_name} ya se registró. Podrá marcar la salida después de ${MIN_MINUTES_BEFORE_CHECKOUT} minutos desde su entrada.`,
+    };
+  }
 
   const { data: inserted, error: insertError } = await supabase
     .from("attendance_records")
@@ -110,7 +120,7 @@ export async function registerAttendance(
       observations: input.observations?.trim() || null,
     })
     .select(
-      "id, worker_id, project_id, supervisor_id, type, recorded_at, gps_lat, gps_lng, gps_accuracy, observations, worker:workers(id, full_name, document_id), project:projects(id, code, name), supervisor:profiles(id, full_name)"
+      "id, worker_id, project_id, supervisor_id, type, recorded_at, gps_lat, gps_lng, gps_accuracy, observations, worker:workers(id, full_name, document_id), project:projects(id, name), supervisor:profiles(id, full_name)"
     )
     .single();
 

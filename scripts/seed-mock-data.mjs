@@ -47,9 +47,9 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 });
 
 const MOCK_PROJECTS = [
-  { code: "P001-OBRA-NORTE", name: "Obra Norte - Mantenimiento Industrial" },
-  { code: "P002-OBRA-SUR", name: "Obra Sur - Suministro e Instalación" },
-  { code: "P003-PLANTA", name: "Planta Principal - Mantenimiento Preventivo" },
+  { name: "Obra Norte - Mantenimiento Industrial" },
+  { name: "Obra Sur - Suministro e Instalación" },
+  { name: "Planta Principal - Mantenimiento Preventivo" },
 ];
 
 // Salario mínimo legal vigente 2026 (ver hoja CONTROL/DATOS de las plantillas
@@ -116,7 +116,7 @@ async function main() {
   console.log("Consultando proyectos existentes...");
   const { data: existingProjects, error: projectsError } = await supabase
     .from("projects")
-    .select("id, code, name");
+    .select("id, name");
   if (projectsError) throw projectsError;
 
   let projects = existingProjects ?? [];
@@ -125,16 +125,16 @@ async function main() {
     const { data: inserted, error } = await supabase
       .from("projects")
       .insert(MOCK_PROJECTS)
-      .select("id, code, name");
+      .select("id, name");
     if (error) throw error;
     projects = inserted;
   }
-  console.log(`Proyectos disponibles: ${projects.map((p) => p.code).join(", ")}`);
+  console.log(`Proyectos disponibles: ${projects.map((p) => p.name).join(", ")}`);
 
   console.log("Consultando perfiles (admin/supervisor) existentes...");
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
-    .select("id, role, project_id");
+    .select("id, role");
   if (profilesError) throw profilesError;
 
   if (!profiles || profiles.length === 0) {
@@ -146,10 +146,10 @@ async function main() {
     process.exit(1);
   }
 
-  const admin = profiles.find((p) => p.role === "admin") ?? profiles[0];
-  const supervisorByProject = new Map(
-    profiles.filter((p) => p.role === "supervisor" && p.project_id).map((p) => [p.project_id, p.id])
-  );
+  // Cualquier supervisor o admin puede registrar asistencia en cualquier
+  // proyecto (los supervisores ya no están atados a uno solo), así que
+  // alcanza con un único perfil para firmar todas las marcaciones mock.
+  const signer = profiles.find((p) => p.role === "admin") ?? profiles[0];
 
   console.log("Consultando trabajadores existentes...");
   const { data: existingWorkers, error: workersError } = await supabase
@@ -220,7 +220,7 @@ async function main() {
 
   testWorkers.forEach((worker, workerIndex) => {
     const project = projects[workerIndex % projects.length];
-    const supervisorId = supervisorByProject.get(project.id) ?? admin.id;
+    const supervisorId = signer.id;
 
     // Cada trabajador tiene asistencia en 2-3 de los últimos días hábiles
     // (apunta a ~50 registros totales entre todos los trabajadores mock).

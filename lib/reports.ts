@@ -13,7 +13,6 @@ export interface WorkedHoursRow {
   workerId: string;
   workerName: string;
   documentId: string;
-  projectCode: string;
   projectName: string;
   /** Fecha (yyyy-mm-dd) de la entrada de esta jornada. */
   date: string;
@@ -55,7 +54,6 @@ export function buildWorkedHoursReport(
       workerId: entrada.worker_id,
       workerName: entrada.worker.full_name,
       documentId: entrada.worker.document_id,
-      projectCode: entrada.project.code,
       projectName: entrada.project.name,
       date: toDateKey(entrada.recorded_at),
       entradaAt: entrada.recorded_at,
@@ -95,7 +93,6 @@ export function buildWorkedHoursReport(
         workerId: open.worker_id,
         workerName: open.worker.full_name,
         documentId: open.worker.document_id,
-        projectCode: open.project.code,
         projectName: open.project.name,
         date: toDateKey(open.recorded_at),
         entradaAt: open.recorded_at,

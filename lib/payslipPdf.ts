@@ -73,7 +73,9 @@ export async function generatePayslipPdf(
     { label: "Subsidio alimentación", devengado: row.lunchSubsidy },
     { label: "Incapacidades", devengado: row.incapacidad },
     { label: "Otros", devengado: 0 },
-    { label: "Primas de servicios", devengado: row.primas },
+    ...(row.includePrimas
+      ? [{ label: "Primas de servicios", devengado: row.primas }]
+      : []),
     { label: "Descuento salud", descontado: row.healthDeduction },
     { label: "Descuento pensión", descontado: row.pensionDeduction },
     { label: "Descuento FSP", descontado: row.fspDeduction },

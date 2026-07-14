@@ -31,8 +31,6 @@ export interface WorkedHoursRow {
   isHoliday: boolean;
   /** Total de horas trabajadas si `isHoliday`, 0 en caso contrario. */
   holidayHours: number | null;
-  /** Horas muertas descontadas (ej. almuerzo) que caían dentro de la jornada. */
-  deadHours: number | null;
   hasCheckout: boolean;
 }
 
@@ -166,7 +164,6 @@ export function buildWorkedHoursReport(
       nightHours: null,
       isHoliday: isFestivo(new Date(entrada.recorded_at)),
       holidayHours: null,
-      deadHours: null,
       hasCheckout: false,
     });
   };
@@ -215,7 +212,6 @@ export function buildWorkedHoursReport(
         nightHours,
         isHoliday,
         holidayHours,
-        deadHours,
         hasCheckout: true,
       });
       open = null;

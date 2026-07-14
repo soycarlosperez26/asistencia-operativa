@@ -216,8 +216,7 @@ export default async function ReportesPage({
         <p className="mb-4 text-xs text-neutral-400">
           Horas extras diurnas (HED) calculadas sobre una jornada estándar de{" "}
           {STANDARD_WORKDAY_HOURS} horas. Las horas trabajadas ya descuentan
-          el horario de almuerzo configurado en Nómina → Parámetros legales
-          (columna Horas Muertas).
+          el horario de almuerzo configurado en Nómina → Parámetros legales.
         </p>
 
         {totalRows === 0 ? (
@@ -251,8 +250,7 @@ export default async function ReportesPage({
                     </th>
                     <th className="px-3 py-2">Horas Extras Diurnas</th>
                     <th className="px-3 py-2">Horas Nocturnas</th>
-                    <th className="px-3 py-2">Horas Festivas</th>
-                    <th className="rounded-r-lg px-3 py-2">Horas Muertas</th>
+                    <th className="rounded-r-lg px-3 py-2">Horas Festivas</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
@@ -302,9 +300,6 @@ export default async function ReportesPage({
                       </td>
                       <td className="px-3 py-2 text-neutral-900">
                         {row.holidayHours?.toFixed(2) ?? "-"}
-                      </td>
-                      <td className="px-3 py-2 text-neutral-500">
-                        {row.deadHours?.toFixed(2) ?? "-"}
                       </td>
                     </tr>
                   ))}

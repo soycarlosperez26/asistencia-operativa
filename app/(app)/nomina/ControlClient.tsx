@@ -179,6 +179,7 @@ export function ControlClient({
   hasParamsForPeriod,
   activeWorkers,
   selectedWorkerId,
+  includePrimas,
   payrollPage,
   payrollTotalPages,
   totalPayrollRows,
@@ -196,6 +197,7 @@ export function ControlClient({
   hasParamsForPeriod: boolean;
   activeWorkers: Pick<Worker, "id" | "full_name" | "document_id">[];
   selectedWorkerId: string;
+  includePrimas: boolean;
   payrollPage: number;
   payrollTotalPages: number;
   totalPayrollRows: number;
@@ -492,73 +494,99 @@ export function ControlClient({
 
         <form
           method="get"
-          className="mb-5 flex flex-wrap items-end gap-3 rounded-xl bg-neutral-50 p-4"
+          className="mb-5 space-y-3 rounded-xl bg-neutral-50 p-4"
         >
-          <div>
-            <label className="mb-1 block text-sm font-medium text-neutral-700">
-              Desde
-            </label>
-            <input
-              type="date"
-              name="from"
-              defaultValue={from}
-              required
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-neutral-700">
-              Hasta
-            </label>
-            <input
-              type="date"
-              name="to"
-              defaultValue={to}
-              required
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-neutral-700">
-              Proyecto
-            </label>
-            <select
-              name="project"
-              defaultValue={selectedProjectId}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700">
+                Desde
+              </label>
+              <input
+                type="date"
+                name="from"
+                defaultValue={from}
+                required
+                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700">
+                Hasta
+              </label>
+              <input
+                type="date"
+                name="to"
+                defaultValue={to}
+                required
+                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700">
+                Proyecto
+              </label>
+              <select
+                name="project"
+                defaultValue={selectedProjectId}
+                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              >
+                <option value="all">Todos los proyectos</option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-neutral-700">
+                Trabajador
+              </label>
+              <select
+                name="worker"
+                defaultValue={selectedWorkerId}
+                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+              >
+                <option value="">Todos los activos</option>
+                {activeWorkers.map((worker) => (
+                  <option key={worker.id} value={worker.id}>
+                    {worker.full_name} ({worker.document_id})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit"
+              className="rounded-lg bg-brand-dark px-4 py-2 text-sm font-semibold text-white hover:bg-brand"
             >
-              <option value="all">Todos los proyectos</option>
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
+              Calcular
+            </button>
           </div>
+
           <div>
-            <label className="mb-1 block text-sm font-medium text-neutral-700">
-              Trabajador
+            <label className="flex items-center gap-2 text-sm font-medium text-neutral-700">
+              <input
+                type="checkbox"
+                name="includePrimas"
+                value="1"
+                defaultChecked={includePrimas}
+                className="h-4 w-4 rounded border-neutral-300 text-brand focus:ring-brand"
+              />
+              Incluir primas en este período
             </label>
-            <select
-              name="worker"
-              defaultValue={selectedWorkerId}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-            >
-              <option value="">Todos los activos</option>
-              {activeWorkers.map((worker) => (
-                <option key={worker.id} value={worker.id}>
-                  {worker.full_name} ({worker.document_id})
-                </option>
-              ))}
-            </select>
+            <p className="mt-1 text-xs text-neutral-400">
+              Activalo solo cuando corresponda pagar la prima — no se
+              prorratea sola en cada período.
+            </p>
           </div>
-          <button
-            type="submit"
-            className="rounded-lg bg-brand-dark px-4 py-2 text-sm font-semibold text-white hover:bg-brand"
-          >
-            Calcular
-          </button>
         </form>
+
+        {includePrimas && (
+          <p className="mb-4 rounded-lg bg-brand-light px-3 py-2 text-sm text-brand-dark">
+            Primas incluidas en este período — el cálculo y los volantes de
+            este rango de fechas ya suman la prima de servicios.
+          </p>
+        )}
 
         {!hasParamsForPeriod ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -610,6 +638,7 @@ export function ControlClient({
                 to,
                 project: selectedProjectId,
                 worker: selectedWorkerId || undefined,
+                includePrimas: includePrimas ? "1" : undefined,
               }}
               page={payrollPage}
               totalPages={payrollTotalPages}

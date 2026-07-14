@@ -124,6 +124,8 @@ export interface WorkerPayrollRow {
   lunchSubsidy: number;
   /** Primas de servicios acumuladas del período (se pagan al trabajador). */
   primas: number;
+  /** Si `false`, `primas` es 0 porque el admin no activó el checkbox del período — el volante no debe mostrar la fila. */
+  includePrimas: boolean;
   /** Incapacidades del período, como % del básico (se pagan al trabajador). */
   incapacidad: number;
   totalEarned: number;
@@ -203,6 +205,11 @@ function buildCategories(buckets: HourBuckets, salary: number, params: LegalPara
  * Construye la liquidación de nómina por trabajador para un período,
  * a partir de las marcaciones de asistencia + el maestro de trabajadores +
  * los parámetros legales del año. Espejo de la hoja NOMINA de la plantilla.
+ *
+ * `includePrimas` controla si se calcula la prima de servicios de este
+ * período — la prima NO se prorratea automáticamente en cada nómina, sino
+ * que el admin la activa a mano en Control de nómina el período en que
+ * realmente corresponde pagarla (ver checkbox "Incluir primas").
  */
 export function buildPayrollReport(
   records: AttendanceRecordWithRelations[],
@@ -210,8 +217,10 @@ export function buildPayrollReport(
     Worker,
     "id" | "full_name" | "document_id" | "monthly_salary" | "arl_risk_level"
   >[],
-  legalParams: LegalParameters
+  legalParams: LegalParameters,
+  options?: { includePrimas?: boolean }
 ): WorkerPayrollRow[] {
+  const includePrimas = options?.includePrimas ?? false;
   const sessions = buildWorkedHoursReport(records);
 
   const daysByWorker = new Map<string, Set<string>>();
@@ -254,7 +263,7 @@ export function buildPayrollReport(
       : 0;
 
     const lunchSubsidy = round2(legalParams.lunch_subsidy_per_day * daysWorked);
-    const primas = round2(basico * legalParams.primas_percent);
+    const primas = includePrimas ? round2(basico * legalParams.primas_percent) : 0;
     const incapacidad = round2(basico * legalParams.incapacidad_percent);
 
     const totalEarned = round2(
@@ -307,6 +316,7 @@ export function buildPayrollReport(
       transportAllowance,
       lunchSubsidy,
       primas,
+      includePrimas,
       incapacidad,
       totalEarned,
       healthDeduction,

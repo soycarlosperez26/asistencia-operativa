@@ -23,7 +23,7 @@ export function NavLinks({ role, vertical = false, onNavigate }: NavLinksProps) 
   const pathname = usePathname();
 
   const links = [
-    { href: "/asistencia", label: "Asistencia", icon: faClock },
+    { href: "/asistencia", label: "Registro Tiempos", icon: faClock },
     { href: "/reportes", label: "Reportes", icon: faChartColumn },
     ...(role === "admin"
       ? [

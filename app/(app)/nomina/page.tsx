@@ -26,6 +26,7 @@ interface ControlSearchParams {
   to?: string;
   project?: string;
   worker?: string;
+  includePrimas?: string;
   page?: string;
 }
 
@@ -50,6 +51,7 @@ export default async function ControlPage({
   const to = params.to || todayISODate();
   const selectedProjectId = params.project || "all";
   const selectedWorkerId = params.worker || "";
+  const includePrimas = params.includePrimas === "1";
   const { startISO, endISO } = dateRangeBoundsISO(from, to);
 
   const [{ data: parameters }, { data: workers }, { data: activeWorkers }, { data: projects }, { data: records }] =
@@ -101,7 +103,7 @@ export default async function ControlPage({
       : allRecords.filter((r) => r.project_id === selectedProjectId);
 
   const allPayrollRows = activeParams
-    ? buildPayrollReport(filteredRecords, workerRows, activeParams)
+    ? buildPayrollReport(filteredRecords, workerRows, activeParams, { includePrimas })
     : [];
 
   const payrollRowsFiltered = selectedWorkerId
@@ -126,7 +128,9 @@ export default async function ControlPage({
     for (const project of projectRows) {
       const projectRecords = allRecords.filter((r) => r.project_id === project.id);
       if (projectRecords.length === 0) continue;
-      const rows = buildPayrollReport(projectRecords, workerRows, activeParams);
+      const rows = buildPayrollReport(projectRecords, workerRows, activeParams, {
+        includePrimas,
+      });
       if (rows.length === 0) continue;
       payrollByProject.push({
         project,
@@ -151,6 +155,7 @@ export default async function ControlPage({
       hasParamsForPeriod={!!activeParams}
       activeWorkers={activeWorkerRows}
       selectedWorkerId={selectedWorkerId}
+      includePrimas={includePrimas}
       payrollPage={payrollPage}
       payrollTotalPages={payrollTotalPages}
       totalPayrollRows={totalPayrollRows}

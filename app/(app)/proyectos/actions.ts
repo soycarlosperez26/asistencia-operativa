@@ -58,3 +58,26 @@ export async function toggleProjectActive(projectId: string, active: boolean) {
   revalidatePath("/proyectos");
   return { success: true };
 }
+
+export async function deleteProject(projectId: string): Promise<ActionState> {
+  if (!(await requireAdmin())) {
+    return { error: "No tienes permisos para eliminar proyectos." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("projects").delete().eq("id", projectId);
+
+  if (error) {
+    // Violación de FK: el proyecto tiene asistencia registrada.
+    if (error.code === "23503") {
+      return {
+        error:
+          "No se puede eliminar: tiene asistencia registrada. Archívalo en su lugar.",
+      };
+    }
+    return { error: "No se pudo eliminar el proyecto." };
+  }
+
+  revalidatePath("/proyectos");
+  return { success: true };
+}

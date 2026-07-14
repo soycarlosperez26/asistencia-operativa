@@ -53,7 +53,7 @@ export default async function TrabajadoresPage({
   let workersQuery = supabase
     .from("workers")
     .select(
-      "id, full_name, document_id, qr_token, active, created_at, monthly_salary, birth_date, blood_type, email, phone, job_title, arl_risk_level"
+      "id, full_name, document_id, qr_token, active, created_at, monthly_salary, birth_date, blood_type, email, phone, job_title, arl_risk_level, notes"
     )
     .order("full_name");
   if (orFilter) workersQuery = workersQuery.or(orFilter);

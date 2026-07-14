@@ -1,4 +1,5 @@
 import type { LegalParameters } from "@/lib/types";
+import { parseTimeOfDay, type DeadTimeWindow } from "@/lib/reports";
 
 /**
  * Valores por defecto para un año sin parámetros cargados todavía — los
@@ -22,6 +23,8 @@ export const DEFAULT_LEGAL_PARAMETER_VALUES: Omit<
   holiday_overtime_day_factor: 2.0,
   holiday_overtime_night_factor: 2.5,
   lunch_subsidy_per_day: 0,
+  lunch_break_start: "12:00:00",
+  lunch_break_end: "13:00:00",
   health_employer_percent: 0.085,
   health_employee_percent: 0.04,
   pension_employer_percent: 0.12,
@@ -41,6 +44,27 @@ export const DEFAULT_LEGAL_PARAMETER_VALUES: Omit<
   arl_level_5_percent: 0.0696,
   incapacidad_percent: 0,
 };
+
+/**
+ * Ventanas de "hora muerta" a descontar de las horas trabajadas en Reportes
+ * (ver lib/reports.ts, deadTimeMinutesBetween). Hoy solo el almuerzo; para
+ * descontar otro horario muerto a futuro (ej. un segundo descanso), agregar
+ * sus columnas a legal_parameters y otra entrada acá.
+ */
+export function legalParametersToDeadTimeWindows(
+  params: Pick<LegalParameters, "lunch_break_start" | "lunch_break_end">
+): DeadTimeWindow[] {
+  const start = parseTimeOfDay(params.lunch_break_start);
+  const end = parseTimeOfDay(params.lunch_break_end);
+  return [
+    {
+      startHour: start.hour,
+      startMinute: start.minute,
+      endHour: end.hour,
+      endMinute: end.minute,
+    },
+  ];
+}
 
 export function arlPercentForLevel(
   params: Pick<

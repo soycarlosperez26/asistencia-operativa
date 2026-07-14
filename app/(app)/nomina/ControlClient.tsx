@@ -233,6 +233,12 @@ export function ControlClient({
     transport_allowance:
       parametersByYear[availableYears[1]]?.transport_allowance ?? 0,
   }) as unknown as Record<string, number>;
+  const lunchBreakStart =
+    parametersByYear[selectedYear]?.lunch_break_start ??
+    DEFAULT_LEGAL_PARAMETER_VALUES.lunch_break_start;
+  const lunchBreakEnd =
+    parametersByYear[selectedYear]?.lunch_break_end ??
+    DEFAULT_LEGAL_PARAMETER_VALUES.lunch_break_end;
 
   return (
     <div className="space-y-6">
@@ -335,6 +341,43 @@ export function ControlClient({
                     defaultValue={values.lunch_subsidy_per_day}
                     className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
                   />
+                </div>
+              </div>
+
+              <div>
+                <h2 className="text-sm font-semibold text-neutral-900">
+                  Horario de almuerzo
+                </h2>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Se descuenta de las horas trabajadas en Reportes (hora
+                  muerta). Si más adelante hay que descontar otro horario
+                  muerto, se agrega junto a este.
+                </p>
+                <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-neutral-700">
+                      Inicio
+                    </label>
+                    <input
+                      name="lunch_break_start"
+                      type="time"
+                      required
+                      defaultValue={lunchBreakStart.slice(0, 5)}
+                      className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-neutral-700">
+                      Fin
+                    </label>
+                    <input
+                      name="lunch_break_end"
+                      type="time"
+                      required
+                      defaultValue={lunchBreakEnd.slice(0, 5)}
+                      className="w-full rounded-lg border border-neutral-300 px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+                    />
+                  </div>
                 </div>
               </div>
 

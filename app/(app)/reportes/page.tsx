@@ -8,8 +8,13 @@ import {
   formatReportDate,
   formatReportTime,
   STANDARD_WORKDAY_HOURS,
+  type DeadTimeWindow,
   type WorkedHoursRow,
 } from "@/lib/reports";
+import {
+  DEFAULT_LEGAL_PARAMETER_VALUES,
+  legalParametersToDeadTimeWindows,
+} from "@/lib/legalParameters";
 import type { AttendanceRecordWithRelations, Worker } from "@/lib/types";
 import { Pagination } from "@/components/Pagination";
 import { ExportExcelButton } from "./ExportExcelButton";
@@ -83,8 +88,18 @@ export default async function ReportesPage({
 
   const { data: records } = await query;
 
+  const { data: legalParamsRows } = await supabase
+    .from("legal_parameters")
+    .select("year, lunch_break_start, lunch_break_end");
+
+  const deadTimeWindowsByYear = new Map<number, DeadTimeWindow[]>(
+    (legalParamsRows ?? []).map((row) => [row.year, legalParametersToDeadTimeWindows(row)])
+  );
+  const defaultDeadTimeWindows = legalParametersToDeadTimeWindows(DEFAULT_LEGAL_PARAMETER_VALUES);
+
   const rows = buildWorkedHoursReport(
-    (records as unknown as AttendanceRecordWithRelations[]) ?? []
+    (records as unknown as AttendanceRecordWithRelations[]) ?? [],
+    (date) => deadTimeWindowsByYear.get(date.getFullYear()) ?? defaultDeadTimeWindows
   );
 
   const sortField: SortField =
@@ -200,7 +215,9 @@ export default async function ReportesPage({
 
         <p className="mb-4 text-xs text-neutral-400">
           Horas extras diurnas (HED) calculadas sobre una jornada estándar de{" "}
-          {STANDARD_WORKDAY_HOURS} horas.
+          {STANDARD_WORKDAY_HOURS} horas. Las horas trabajadas ya descuentan
+          el horario de almuerzo configurado en Nómina → Parámetros legales
+          (columna Horas Muertas).
         </p>
 
         {totalRows === 0 ? (
@@ -210,7 +227,7 @@ export default async function ReportesPage({
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[900px] text-left text-sm">
+              <table className="w-full min-w-[1000px] text-left text-sm">
                 <thead>
                   <tr className="bg-brand-dark text-xs uppercase text-white">
                     <th className="rounded-l-lg px-3 py-2">
@@ -234,7 +251,8 @@ export default async function ReportesPage({
                     </th>
                     <th className="px-3 py-2">Horas Extras Diurnas</th>
                     <th className="px-3 py-2">Horas Nocturnas</th>
-                    <th className="rounded-r-lg px-3 py-2">Horas Festivas</th>
+                    <th className="px-3 py-2">Horas Festivas</th>
+                    <th className="rounded-r-lg px-3 py-2">Horas Muertas</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
@@ -284,6 +302,9 @@ export default async function ReportesPage({
                       </td>
                       <td className="px-3 py-2 text-neutral-900">
                         {row.holidayHours?.toFixed(2) ?? "-"}
+                      </td>
+                      <td className="px-3 py-2 text-neutral-500">
+                        {row.deadHours?.toFixed(2) ?? "-"}
                       </td>
                     </tr>
                   ))}

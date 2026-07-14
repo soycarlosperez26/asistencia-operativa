@@ -25,6 +25,13 @@ function parsePositiveNumber(formData: FormData, field: string): number | null {
   return value;
 }
 
+/** Valida un input type="time" ("HH:MM") y lo normaliza a "HH:MM:00". */
+function parseTimeField(formData: FormData, field: string): string | null {
+  const raw = String(formData.get(field) ?? "").trim();
+  if (!/^\d{2}:\d{2}$/.test(raw)) return null;
+  return `${raw}:00`;
+}
+
 const NUMERIC_FIELDS = [
   "minimum_wage",
   "transport_allowance",
@@ -57,6 +64,8 @@ const NUMERIC_FIELDS = [
   "incapacidad_percent",
 ] as const;
 
+const TIME_FIELDS = ["lunch_break_start", "lunch_break_end"] as const;
+
 export async function saveLegalParameters(
   _prevState: ActionState,
   formData: FormData
@@ -78,11 +87,19 @@ export async function saveLegalParameters(
     return { error: "Todos los valores son obligatorios y deben ser números válidos." };
   }
 
+  const timeFields = Object.fromEntries(
+    TIME_FIELDS.map((field) => [field, parseTimeField(formData, field)])
+  );
+
+  if (Object.values(timeFields).some((value) => value === null)) {
+    return { error: "El horario de almuerzo no es válido." };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("legal_parameters")
     .upsert(
-      { year, ...fields, updated_at: new Date().toISOString() },
+      { year, ...fields, ...timeFields, updated_at: new Date().toISOString() },
       { onConflict: "year" }
     );
 

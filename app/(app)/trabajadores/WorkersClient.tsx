@@ -7,13 +7,9 @@ import type { Worker } from "@/lib/types";
 import { WorkerQrCard } from "@/components/WorkerQrCard";
 import { Pagination } from "@/components/Pagination";
 import type { WorkerStatusFilter } from "./page";
-import {
-  createWorker,
-  toggleWorkerActive,
-  updateWorkerSalary,
-  type WorkerFormState,
-} from "./actions";
+import { createWorker, toggleWorkerActive, type WorkerFormState } from "./actions";
 import { WorkerSearchBar } from "./WorkerSearchBar";
+import { WorkerEditModal } from "./WorkerEditModal";
 
 const initialState: WorkerFormState = {};
 
@@ -60,9 +56,7 @@ export function WorkersClient({
   const router = useRouter();
   const [state, formAction, pending] = useActionState(createWorker, initialState);
   const [qrWorker, setQrWorker] = useState<Worker | null>(null);
-  const [salaryEditorId, setSalaryEditorId] = useState<string | null>(null);
-  const [salaryDraft, setSalaryDraft] = useState("");
-  const [savingSalary, setSavingSalary] = useState(false);
+  const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [formKey, setFormKey] = useState(0);
   const [prevState, setPrevState] = useState(state);
   const [createOpen, setCreateOpen] = useState(false);
@@ -270,55 +264,17 @@ export function WorkersClient({
                   <p className="text-xs text-neutral-500">{worker.job_title}</p>
                 )}
 
-                {salaryEditorId === worker.id ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      autoFocus
-                      value={salaryDraft}
-                      onChange={(e) => setSalaryDraft(e.target.value)}
-                      className="w-28 rounded-lg border border-neutral-300 px-2 py-1 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand"
-                    />
-                    <button
-                      disabled={savingSalary}
-                      onClick={async () => {
-                        const value = Number(salaryDraft);
-                        if (!Number.isFinite(value) || value < 0) return;
-                        setSavingSalary(true);
-                        await updateWorkerSalary(worker.id, value);
-                        setSavingSalary(false);
-                        setSalaryEditorId(null);
-                        router.refresh();
-                      }}
-                      className="rounded-lg bg-brand-dark px-2.5 py-1 text-xs font-semibold text-white hover:bg-brand disabled:opacity-60"
-                    >
-                      {savingSalary ? "..." : "Guardar"}
-                    </button>
-                    <button
-                      onClick={() => setSalaryEditorId(null)}
-                      className="rounded-lg border border-neutral-300 px-2.5 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                ) : (
-                  <p className="text-sm text-neutral-500">
-                    {formatSalary(worker.monthly_salary)}{" "}
-                    <button
-                      onClick={() => {
-                        setSalaryDraft(String(worker.monthly_salary ?? ""));
-                        setSalaryEditorId(worker.id);
-                      }}
-                      className="font-medium text-brand-dark hover:underline"
-                    >
-                      Editar
-                    </button>
-                  </p>
-                )}
+                <p className="text-sm text-neutral-500">
+                  {formatSalary(worker.monthly_salary)}
+                </p>
 
                 <div className="mt-1 flex gap-2">
+                  <button
+                    onClick={() => setEditingWorker(worker)}
+                    className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                  >
+                    Editar
+                  </button>
                   <button
                     onClick={() => setQrWorker(worker)}
                     className="flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
@@ -351,6 +307,13 @@ export function WorkersClient({
 
       {qrWorker && (
         <WorkerQrCard worker={qrWorker} onClose={() => setQrWorker(null)} />
+      )}
+
+      {editingWorker && (
+        <WorkerEditModal
+          worker={editingWorker}
+          onClose={() => setEditingWorker(null)}
+        />
       )}
     </div>
   );

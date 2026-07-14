@@ -31,7 +31,23 @@ export interface WorkedHoursRow {
   isHoliday: boolean;
   /** Total de horas trabajadas si `isHoliday`, 0 en caso contrario. */
   holidayHours: number | null;
+  /** Horas muertas descontadas (ej. almuerzo) que caían dentro de la jornada. */
+  deadHours: number | null;
   hasCheckout: boolean;
+}
+
+/** Ventana horaria diaria a descontar de las horas trabajadas (ej. almuerzo). */
+export interface DeadTimeWindow {
+  startHour: number;
+  startMinute: number;
+  endHour: number;
+  endMinute: number;
+}
+
+/** Convierte "HH:MM" o "HH:MM:SS" a {hour, minute}. */
+export function parseTimeOfDay(value: string): { hour: number; minute: number } {
+  const [hour, minute] = value.split(":").map(Number);
+  return { hour: hour || 0, minute: minute || 0 };
 }
 
 function toDateKey(iso: string): string {
@@ -42,33 +58,47 @@ function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-/** Minutos de [start, end) que caen dentro de la franja nocturna (19:00–06:00). */
-export function nightMinutesBetween(start: Date, end: Date): number {
+/**
+ * Minutos de [start, end) que caen dentro de una ventana horaria diaria.
+ * Soporta ventanas que no cruzan medianoche (ej. almuerzo 12:00–13:00) y
+ * ventanas que sí cruzan medianoche (ej. franja nocturna 19:00–06:00).
+ */
+function minutesInDailyWindow(start: Date, end: Date, window: DeadTimeWindow): number {
   if (end <= start) return 0;
   let total = 0;
   let cursor = start;
 
   while (cursor < end) {
     const dayStart = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
-    const nightEndToday = new Date(dayStart);
-    nightEndToday.setHours(NIGHT_END_HOUR, 0, 0, 0);
-    const nightStartToday = new Date(dayStart);
-    nightStartToday.setHours(NIGHT_START_HOUR, 0, 0, 0);
+    const windowStartToday = new Date(dayStart);
+    windowStartToday.setHours(window.startHour, window.startMinute, 0, 0);
+    const windowEndToday = new Date(dayStart);
+    windowEndToday.setHours(window.endHour, window.endMinute, 0, 0);
     const nextDayStart = new Date(dayStart);
     nextDayStart.setDate(nextDayStart.getDate() + 1);
 
     const segEnd = end < nextDayStart ? end : nextDayStart;
 
-    const morningStart = cursor > dayStart ? cursor : dayStart;
-    const morningEnd = segEnd < nightEndToday ? segEnd : nightEndToday;
-    if (morningEnd > morningStart) {
-      total += (morningEnd.getTime() - morningStart.getTime()) / 60_000;
-    }
+    if (windowEndToday > windowStartToday) {
+      // Ventana dentro del mismo día (ej. almuerzo).
+      const overlapStart = cursor > windowStartToday ? cursor : windowStartToday;
+      const overlapEnd = segEnd < windowEndToday ? segEnd : windowEndToday;
+      if (overlapEnd > overlapStart) {
+        total += (overlapEnd.getTime() - overlapStart.getTime()) / 60_000;
+      }
+    } else {
+      // Ventana que cruza medianoche (ej. franja nocturna).
+      const morningStart = cursor > dayStart ? cursor : dayStart;
+      const morningEnd = segEnd < windowEndToday ? segEnd : windowEndToday;
+      if (morningEnd > morningStart) {
+        total += (morningEnd.getTime() - morningStart.getTime()) / 60_000;
+      }
 
-    const eveningStart = cursor > nightStartToday ? cursor : nightStartToday;
-    const eveningEnd = segEnd;
-    if (eveningEnd > eveningStart) {
-      total += (eveningEnd.getTime() - eveningStart.getTime()) / 60_000;
+      const eveningStart = cursor > windowStartToday ? cursor : windowStartToday;
+      const eveningEnd = segEnd;
+      if (eveningEnd > eveningStart) {
+        total += (eveningEnd.getTime() - eveningStart.getTime()) / 60_000;
+      }
     }
 
     cursor = segEnd;
@@ -77,13 +107,40 @@ export function nightMinutesBetween(start: Date, end: Date): number {
   return total;
 }
 
+/** Minutos de [start, end) que caen dentro de la franja nocturna (19:00–06:00). */
+export function nightMinutesBetween(start: Date, end: Date): number {
+  return minutesInDailyWindow(start, end, {
+    startHour: NIGHT_START_HOUR,
+    startMinute: 0,
+    endHour: NIGHT_END_HOUR,
+    endMinute: 0,
+  });
+}
+
+/**
+ * Minutos de [start, end) que caen dentro de cualquiera de las ventanas de
+ * "hora muerta" (ej. almuerzo). Para descontar otro horario muerto a futuro,
+ * alcanza con agregar otra ventana a la lista — no hace falta tocar esta
+ * función.
+ */
+export function deadTimeMinutesBetween(start: Date, end: Date, windows: DeadTimeWindow[]): number {
+  return windows.reduce((sum, window) => sum + minutesInDailyWindow(start, end, window), 0);
+}
+
 /**
  * Empareja entrada/salida por trabajador (en orden cronológico, alternan
  * porque el sistema ya fuerza esa alternancia al registrar asistencia) y
  * calcula horas trabajadas + horas extra diurnas por jornada.
+ *
+ * `getDeadTimeWindows` resuelve las ventanas de hora muerta (ej. almuerzo)
+ * aplicables a la fecha de una jornada — puede variar por año porque el
+ * horario de almuerzo es parametrizable (ver lib/legalParameters.ts). Si no
+ * se pasa, no se descuenta ninguna hora muerta (comportamiento de nómina,
+ * que calcula sus propias categorías por separado).
  */
 export function buildWorkedHoursReport(
-  records: AttendanceRecordWithRelations[]
+  records: AttendanceRecordWithRelations[],
+  getDeadTimeWindows?: (date: Date) => DeadTimeWindow[]
 ): WorkedHoursRow[] {
   const byWorker = new Map<string, AttendanceRecordWithRelations[]>();
   for (const record of records) {
@@ -109,6 +166,7 @@ export function buildWorkedHoursReport(
       nightHours: null,
       isHoliday: isFestivo(new Date(entrada.recorded_at)),
       holidayHours: null,
+      deadHours: null,
       hasCheckout: false,
     });
   };
@@ -134,9 +192,10 @@ export function buildWorkedHoursReport(
       const entradaDate = new Date(open.recorded_at);
       const salidaDate = new Date(record.recorded_at);
 
-      const hoursWorked = round2(
-        (salidaDate.getTime() - entradaDate.getTime()) / 3_600_000
-      );
+      const rawHours = (salidaDate.getTime() - entradaDate.getTime()) / 3_600_000;
+      const deadWindows = getDeadTimeWindows?.(entradaDate) ?? [];
+      const deadHours = round2(deadTimeMinutesBetween(entradaDate, salidaDate, deadWindows) / 60);
+      const hoursWorked = round2(Math.max(0, rawHours - deadHours));
       const overtimeDay = round2(Math.max(0, hoursWorked - STANDARD_WORKDAY_HOURS));
       const nightHours = round2(nightMinutesBetween(entradaDate, salidaDate) / 60);
       const isHoliday = isFestivo(entradaDate);
@@ -156,6 +215,7 @@ export function buildWorkedHoursReport(
         nightHours,
         isHoliday,
         holidayHours,
+        deadHours,
         hasCheckout: true,
       });
       open = null;

@@ -33,6 +33,8 @@ export interface Worker {
   job_title: string | null;
   /** Nivel de riesgo ARL (1 a 5), usado para calcular el aporte de ARL en nómina. */
   arl_risk_level: number;
+  /** Notas libres del admin sobre el trabajador. */
+  notes: string | null;
 }
 
 export interface AttendanceRecord {
@@ -86,6 +88,10 @@ export interface LegalParameters {
   holiday_overtime_night_factor: number;
   /** Subsidio de almuerzo por día trabajado. */
   lunch_subsidy_per_day: number;
+  /** Hora de inicio del almuerzo ("HH:MM:SS") — se descuenta de las horas trabajadas en Reportes. */
+  lunch_break_start: string;
+  /** Hora de fin del almuerzo ("HH:MM:SS"). */
+  lunch_break_end: string;
   /** Salud — aporte del empleador (% del básico). */
   health_employer_percent: number;
   /** Salud — aporte del trabajador (% del básico, se descuenta del neto). */

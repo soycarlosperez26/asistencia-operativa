@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useGps } from "@/lib/useGps";
 import { ALL_PROJECTS_VALUE, computePresentCount } from "@/lib/attendance";
+import { BOGOTA_TIME_ZONE } from "@/lib/timezone";
 import { GPS_ENABLED } from "@/lib/config";
 import { QrScannerModal } from "@/components/QrScannerModal";
 import type { AttendanceRecordWithRelations, Project } from "@/lib/types";
@@ -225,7 +226,14 @@ export function AttendanceClient({
                   </p>
                 )}
                 <p className="mt-0.5 text-xs text-neutral-400">
-                  {new Date(record.recorded_at).toISOString()}
+                  {new Date(record.recorded_at).toLocaleString("es-CO", {
+                    timeZone: BOGOTA_TIME_ZONE,
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: false,
+                  })}
                 </p>
               </li>
             ))}

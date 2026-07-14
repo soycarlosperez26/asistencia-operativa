@@ -2,6 +2,7 @@
 
 import type { WorkedHoursRow } from "@/lib/reports";
 import { formatReportDate, formatReportTime } from "@/lib/reports";
+import { todayBogotaISODate } from "@/lib/timezone";
 
 function csvEscape(value: string): string {
   if (/[",\n;]/.test(value)) {
@@ -50,7 +51,7 @@ export function ExportExcelButton({ rows }: { rows: WorkedHoursRow[] }) {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `horas-trabajadas-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = `horas-trabajadas-${todayBogotaISODate()}.csv`;
     link.click();
     URL.revokeObjectURL(url);
   }

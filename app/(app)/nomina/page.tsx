@@ -9,17 +9,8 @@ import type {
 } from "@/lib/types";
 import { dateRangeBoundsISO } from "@/lib/reports";
 import { buildPayrollReport, summarizePayroll, type PayrollByProject } from "@/lib/payroll";
+import { daysAgoBogotaISODate, todayBogotaISODate } from "@/lib/timezone";
 import { ControlClient } from "./ControlClient";
-
-function todayISODate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function daysAgoISODate(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date.toISOString().slice(0, 10);
-}
 
 interface ControlSearchParams {
   from?: string;
@@ -47,8 +38,8 @@ export default async function ControlPage({
 
   const supabase = await createClient();
 
-  const from = params.from || daysAgoISODate(14);
-  const to = params.to || todayISODate();
+  const from = params.from || daysAgoBogotaISODate(14);
+  const to = params.to || todayBogotaISODate();
   const selectedProjectId = params.project || "all";
   const selectedWorkerId = params.worker || "";
   const includePrimas = params.includePrimas === "1";
@@ -88,7 +79,10 @@ export default async function ControlPage({
     parametersByYear[row.year] = row;
   }
 
-  const payrollYear = new Date(`${to}T00:00:00`).getFullYear();
+  // `to` ya es "YYYY-MM-DD" (elegido por el usuario o por defecto de hoy en
+  // Bogotá) — se toma el año directo del string en vez de parsear un Date,
+  // que interpretaría la hora como la del proceso y podía dar otro año.
+  const payrollYear = Number(to.slice(0, 4));
   const activeParams = parametersByYear[payrollYear];
 
   const allRecords = (records as unknown as AttendanceRecordWithRelations[]) ?? [];

@@ -16,13 +16,10 @@ import {
   legalParametersToDeadTimeWindows,
 } from "@/lib/legalParameters";
 import type { AttendanceRecordWithRelations, Worker } from "@/lib/types";
+import { toBogotaWallClock, todayBogotaISODate } from "@/lib/timezone";
 import { Pagination } from "@/components/Pagination";
 import { ExportExcelButton } from "./ExportExcelButton";
 import { WorkerFilterField } from "./WorkerFilterField";
-
-function todayISODate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 interface ReportesSearchParams {
   from?: string;
@@ -63,7 +60,7 @@ export default async function ReportesPage({
 
   const supabase = await createClient();
 
-  const today = todayISODate();
+  const today = todayBogotaISODate();
   const from = params.from || today;
   const to = params.to || today;
   const workerId = params.worker || undefined;
@@ -99,7 +96,9 @@ export default async function ReportesPage({
 
   const rows = buildWorkedHoursReport(
     (records as unknown as AttendanceRecordWithRelations[]) ?? [],
-    (date) => deadTimeWindowsByYear.get(date.getFullYear()) ?? defaultDeadTimeWindows
+    (date) =>
+      deadTimeWindowsByYear.get(toBogotaWallClock(date).getUTCFullYear()) ??
+      defaultDeadTimeWindows
   );
 
   const sortField: SortField =

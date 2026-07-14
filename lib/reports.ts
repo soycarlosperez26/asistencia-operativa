@@ -1,5 +1,12 @@
 import type { AttendanceRecordWithRelations } from "@/lib/types";
 import { isFestivo } from "@/lib/colombianHolidays";
+import {
+  BOGOTA_TIME_ZONE,
+  bogotaDateKey,
+  bogotaEndOfDayUTC,
+  bogotaMidnightUTC,
+  toBogotaWallClock,
+} from "@/lib/timezone";
 
 /**
  * Jornada estándar usada para calcular horas extra diurnas (HED).
@@ -49,7 +56,7 @@ export function parseTimeOfDay(value: string): { hour: number; minute: number } 
 }
 
 function toDateKey(iso: string): string {
-  return new Date(iso).toISOString().slice(0, 10);
+  return bogotaDateKey(new Date(iso));
 }
 
 function round2(value: number): number {
@@ -60,22 +67,32 @@ function round2(value: number): number {
  * Minutos de [start, end) que caen dentro de una ventana horaria diaria.
  * Soporta ventanas que no cruzan medianoche (ej. almuerzo 12:00–13:00) y
  * ventanas que sí cruzan medianoche (ej. franja nocturna 19:00–06:00).
+ *
+ * `window.startHour`/`endHour` son hora de pared de Bogotá (ej. almuerzo
+ * 12:00–13:00 de Bogotá, no del proceso). Por eso `start`/`end` se pasan
+ * primero por `toBogotaWallClock` y toda la aritmética de día/ventana usa
+ * métodos UTC — así el resultado no depende de la zona horaria del proceso
+ * que ejecuta el cálculo (local vs. servidor). Los desplazamientos son
+ * constantes en ambos extremos, así que las duraciones (lo único que se
+ * devuelve) quedan exactas.
  */
 function minutesInDailyWindow(start: Date, end: Date, window: DeadTimeWindow): number {
   if (end <= start) return 0;
+  const bogotaStart = toBogotaWallClock(start);
+  const bogotaEnd = toBogotaWallClock(end);
   let total = 0;
-  let cursor = start;
+  let cursor = bogotaStart;
 
-  while (cursor < end) {
-    const dayStart = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
+  while (cursor < bogotaEnd) {
+    const dayStart = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate()));
     const windowStartToday = new Date(dayStart);
-    windowStartToday.setHours(window.startHour, window.startMinute, 0, 0);
+    windowStartToday.setUTCHours(window.startHour, window.startMinute, 0, 0);
     const windowEndToday = new Date(dayStart);
-    windowEndToday.setHours(window.endHour, window.endMinute, 0, 0);
+    windowEndToday.setUTCHours(window.endHour, window.endMinute, 0, 0);
     const nextDayStart = new Date(dayStart);
-    nextDayStart.setDate(nextDayStart.getDate() + 1);
+    nextDayStart.setUTCDate(nextDayStart.getUTCDate() + 1);
 
-    const segEnd = end < nextDayStart ? end : nextDayStart;
+    const segEnd = bogotaEnd < nextDayStart ? bogotaEnd : nextDayStart;
 
     if (windowEndToday > windowStartToday) {
       // Ventana dentro del mismo día (ej. almuerzo).
@@ -260,8 +277,8 @@ export function summarizeWorkedHours(rows: WorkedHoursRow[]): WorkedHoursSummary
 
 export function dateRangeBoundsISO(from: string, to: string) {
   return {
-    startISO: new Date(`${from}T00:00:00`).toISOString(),
-    endISO: new Date(`${to}T23:59:59.999`).toISOString(),
+    startISO: bogotaMidnightUTC(from).toISOString(),
+    endISO: bogotaEndOfDayUTC(to).toISOString(),
   };
 }
 
@@ -270,6 +287,7 @@ export function formatReportTime(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
+    timeZone: BOGOTA_TIME_ZONE,
   });
 }
 

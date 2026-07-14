@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/profile";
-import { ALL_PROJECTS_VALUE, startOfTodayLocal } from "@/lib/attendance";
+import { ALL_PROJECTS_VALUE, startOfTodayISO } from "@/lib/attendance";
 import type { AttendanceRecordWithRelations, Project } from "@/lib/types";
 import { AttendanceClient } from "./AttendanceClient";
 
@@ -59,7 +59,7 @@ export default async function AsistenciaPage({
     .select(
       "id, worker_id, project_id, supervisor_id, type, recorded_at, gps_lat, gps_lng, gps_accuracy, observations, worker:workers(id, full_name, document_id), project:projects(id, name), supervisor:profiles(id, full_name)"
     )
-    .gte("recorded_at", startOfTodayLocal())
+    .gte("recorded_at", startOfTodayISO())
     .order("recorded_at", { ascending: false });
 
   if (!viewingAll && project) {

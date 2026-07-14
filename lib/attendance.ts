@@ -1,4 +1,5 @@
 import type { AttendanceRecord, AttendanceType } from "@/lib/types";
+import { startOfTodayBogotaISO } from "@/lib/timezone";
 
 /**
  * Minutos mínimos entre una "entrada" y la próxima "salida" del mismo
@@ -10,18 +11,14 @@ export const MIN_MINUTES_BEFORE_CHECKOUT = 30;
 /** Valor del selector de proyecto en /asistencia para ver todos a la vez. */
 export const ALL_PROJECTS_VALUE = "all";
 
-/** Inicio del día (00:00, hora del servidor) en ISO, para filtrar "hoy". */
+/**
+ * Inicio del día (00:00 hora de Bogotá) en ISO, para filtrar "hoy". Antes
+ * calculaba la medianoche con `Date.setHours` (hora del proceso), lo que
+ * daba un límite distinto según si corría en local o en el servidor
+ * (Vercel corre en UTC) — ver lib/timezone.ts.
+ */
 export function startOfTodayISO(): string {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return now.toISOString();
-}
-
-/** Inicio del día (00:00, hora del cliente) en ISO, para filtrar "hoy". */
-export function startOfTodayLocal(): string {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  return now.toLocaleString();
+  return startOfTodayBogotaISO();
 }
 
 /**

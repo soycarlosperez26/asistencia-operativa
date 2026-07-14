@@ -17,10 +17,13 @@ export function ExportExcelButton({ rows }: { rows: WorkedHoursRow[] }) {
       "Documento",
       "Proyecto",
       "Fecha",
+      "Festivo",
       "Entrada",
       "Salida",
       "Horas Trabajadas",
       "Horas Extras Diurnas",
+      "Horas Nocturnas",
+      "Horas Festivas",
     ];
 
     const lines = rows.map((row) =>
@@ -29,10 +32,13 @@ export function ExportExcelButton({ rows }: { rows: WorkedHoursRow[] }) {
         row.documentId,
         row.projectName,
         formatReportDate(row.date),
+        row.isHoliday ? "Sí" : "No",
         formatReportTime(row.entradaAt),
         row.salidaAt ? formatReportTime(row.salidaAt) : "Sin Marcación",
         row.hoursWorked?.toFixed(2) ?? "",
         row.overtimeDay?.toFixed(2) ?? "",
+        row.nightHours?.toFixed(2) ?? "",
+        row.holidayHours?.toFixed(2) ?? "",
       ]
         .map((value) => csvEscape(String(value)))
         .join(";")

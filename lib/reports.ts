@@ -1,4 +1,5 @@
 import type { AttendanceRecordWithRelations } from "@/lib/types";
+import { isFestivo } from "@/lib/colombianHolidays";
 
 /**
  * Jornada estándar usada para calcular horas extra diurnas (HED).
@@ -7,6 +8,10 @@ import type { AttendanceRecordWithRelations } from "@/lib/types";
  * cuando se confirmen las reglas reales.
  */
 export const STANDARD_WORKDAY_HOURS = 8;
+
+/** Franja nocturna: 19:00–06:00 (Ley 2101 de 2021, vigente desde jul-2025). */
+export const NIGHT_START_HOUR = 19;
+export const NIGHT_END_HOUR = 6;
 
 export interface WorkedHoursRow {
   key: string;
@@ -20,6 +25,12 @@ export interface WorkedHoursRow {
   salidaAt: string | null;
   hoursWorked: number | null;
   overtimeDay: number | null;
+  /** Horas de la jornada dentro de la franja nocturna (19:00–06:00). */
+  nightHours: number | null;
+  /** Domingo o festivo colombiano, tomando la fecha de entrada como referencia. */
+  isHoliday: boolean;
+  /** Total de horas trabajadas si `isHoliday`, 0 en caso contrario. */
+  holidayHours: number | null;
   hasCheckout: boolean;
 }
 
@@ -29,6 +40,41 @@ function toDateKey(iso: string): string {
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+/** Minutos de [start, end) que caen dentro de la franja nocturna (19:00–06:00). */
+export function nightMinutesBetween(start: Date, end: Date): number {
+  if (end <= start) return 0;
+  let total = 0;
+  let cursor = start;
+
+  while (cursor < end) {
+    const dayStart = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
+    const nightEndToday = new Date(dayStart);
+    nightEndToday.setHours(NIGHT_END_HOUR, 0, 0, 0);
+    const nightStartToday = new Date(dayStart);
+    nightStartToday.setHours(NIGHT_START_HOUR, 0, 0, 0);
+    const nextDayStart = new Date(dayStart);
+    nextDayStart.setDate(nextDayStart.getDate() + 1);
+
+    const segEnd = end < nextDayStart ? end : nextDayStart;
+
+    const morningStart = cursor > dayStart ? cursor : dayStart;
+    const morningEnd = segEnd < nightEndToday ? segEnd : nightEndToday;
+    if (morningEnd > morningStart) {
+      total += (morningEnd.getTime() - morningStart.getTime()) / 60_000;
+    }
+
+    const eveningStart = cursor > nightStartToday ? cursor : nightStartToday;
+    const eveningEnd = segEnd;
+    if (eveningEnd > eveningStart) {
+      total += (eveningEnd.getTime() - eveningStart.getTime()) / 60_000;
+    }
+
+    cursor = segEnd;
+  }
+
+  return total;
 }
 
 /**
@@ -60,6 +106,9 @@ export function buildWorkedHoursReport(
       salidaAt: null,
       hoursWorked: null,
       overtimeDay: null,
+      nightHours: null,
+      isHoliday: isFestivo(new Date(entrada.recorded_at)),
+      holidayHours: null,
       hasCheckout: false,
     });
   };
@@ -82,11 +131,16 @@ export function buildWorkedHoursReport(
       // filtrado. No hay forma de atribuirla a una jornada, se omite.
       if (!open) continue;
 
+      const entradaDate = new Date(open.recorded_at);
+      const salidaDate = new Date(record.recorded_at);
+
       const hoursWorked = round2(
-        (new Date(record.recorded_at).getTime() - new Date(open.recorded_at).getTime()) /
-          3_600_000
+        (salidaDate.getTime() - entradaDate.getTime()) / 3_600_000
       );
       const overtimeDay = round2(Math.max(0, hoursWorked - STANDARD_WORKDAY_HOURS));
+      const nightHours = round2(nightMinutesBetween(entradaDate, salidaDate) / 60);
+      const isHoliday = isFestivo(entradaDate);
+      const holidayHours = isHoliday ? hoursWorked : 0;
 
       rows.push({
         key: open.id,
@@ -99,6 +153,9 @@ export function buildWorkedHoursReport(
         salidaAt: record.recorded_at,
         hoursWorked,
         overtimeDay,
+        nightHours,
+        isHoliday,
+        holidayHours,
         hasCheckout: true,
       });
       open = null;

@@ -1,5 +1,5 @@
 import type { AttendanceRecordWithRelations, LegalParameters, Project, Worker } from "@/lib/types";
-import { buildWorkedHoursReport, STANDARD_WORKDAY_HOURS } from "@/lib/reports";
+import { buildWorkedHoursReport, nightMinutesBetween, STANDARD_WORKDAY_HOURS } from "@/lib/reports";
 import { isFestivo } from "@/lib/colombianHolidays";
 import { arlPercentForLevel } from "@/lib/legalParameters";
 
@@ -23,48 +23,11 @@ import { arlPercentForLevel } from "@/lib/legalParameters";
  *   acá (pregunta abierta en logic.spec.md sección 9).
  */
 
-const NIGHT_START_HOUR = 19;
-const NIGHT_END_HOUR = 6;
 const MONTH_HOURS_BASE = 240;
 const TRANSPORT_ALLOWANCE_SALARY_CAP_MULTIPLIER = 2;
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
-}
-
-/** Minutos de [start, end) que caen dentro de la franja nocturna (19:00–06:00). */
-function nightMinutesBetween(start: Date, end: Date): number {
-  if (end <= start) return 0;
-  let total = 0;
-  let cursor = start;
-
-  while (cursor < end) {
-    const dayStart = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
-    const nightEndToday = new Date(dayStart);
-    nightEndToday.setHours(NIGHT_END_HOUR, 0, 0, 0);
-    const nightStartToday = new Date(dayStart);
-    nightStartToday.setHours(NIGHT_START_HOUR, 0, 0, 0);
-    const nextDayStart = new Date(dayStart);
-    nextDayStart.setDate(nextDayStart.getDate() + 1);
-
-    const segEnd = end < nextDayStart ? end : nextDayStart;
-
-    const morningStart = cursor > dayStart ? cursor : dayStart;
-    const morningEnd = segEnd < nightEndToday ? segEnd : nightEndToday;
-    if (morningEnd > morningStart) {
-      total += (morningEnd.getTime() - morningStart.getTime()) / 60_000;
-    }
-
-    const eveningStart = cursor > nightStartToday ? cursor : nightStartToday;
-    const eveningEnd = segEnd;
-    if (eveningEnd > eveningStart) {
-      total += (eveningEnd.getTime() - eveningStart.getTime()) / 60_000;
-    }
-
-    cursor = segEnd;
-  }
-
-  return total;
 }
 
 interface HourBuckets {

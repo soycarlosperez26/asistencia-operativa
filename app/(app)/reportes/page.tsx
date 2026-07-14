@@ -210,7 +210,7 @@ export default async function ReportesPage({
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-sm">
+              <table className="w-full min-w-[900px] text-left text-sm">
                 <thead>
                   <tr className="bg-brand-dark text-xs uppercase text-white">
                     <th className="rounded-l-lg px-3 py-2">
@@ -232,7 +232,9 @@ export default async function ReportesPage({
                         Horas Trabajadas{sortIndicator("hours")}
                       </Link>
                     </th>
-                    <th className="rounded-r-lg px-3 py-2">Horas Extras Diurnas</th>
+                    <th className="px-3 py-2">Horas Extras Diurnas</th>
+                    <th className="px-3 py-2">Horas Nocturnas</th>
+                    <th className="rounded-r-lg px-3 py-2">Horas Festivas</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
@@ -245,7 +247,14 @@ export default async function ReportesPage({
                         {row.documentId}
                       </td>
                       <td className="px-3 py-2 text-neutral-600">
-                        {formatReportDate(row.date)}
+                        <div className="flex items-center gap-1.5">
+                          {formatReportDate(row.date)}
+                          {row.isHoliday && (
+                            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
+                              Festivo
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-2 text-neutral-600">
                         {row.projectName}
@@ -269,6 +278,12 @@ export default async function ReportesPage({
                       </td>
                       <td className="px-3 py-2 text-neutral-900">
                         {row.overtimeDay?.toFixed(2) ?? "-"}
+                      </td>
+                      <td className="px-3 py-2 text-neutral-900">
+                        {row.nightHours?.toFixed(2) ?? "-"}
+                      </td>
+                      <td className="px-3 py-2 text-neutral-900">
+                        {row.holidayHours?.toFixed(2) ?? "-"}
                       </td>
                     </tr>
                   ))}

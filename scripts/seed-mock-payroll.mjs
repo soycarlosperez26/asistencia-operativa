@@ -1,6 +1,8 @@
-// Genera un dataset mock grande para probar Reportes y Nómina: 2 proyectos
-// con 50 trabajadores cada uno, con marcaciones de entrada/salida en todos
-// los días hábiles desde el 1 de junio hasta hoy.
+// Genera un dataset mock grande para probar Reportes y Nómina: un pool de
+// 50 trabajadores (sin atar cada uno a un único proyecto — un trabajador
+// puede marcar asistencia en cualquier proyecto, igual que en producción),
+// con marcaciones de entrada/salida en todos los días hábiles desde el 1 de
+// junio hasta hoy, repartidas entre los proyectos mock existentes.
 // Pensado solo para entornos de prueba — nunca correr contra producción real.
 //
 // Uso: npm run seed:mock-payroll
@@ -44,13 +46,14 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
-const WORKERS_PER_PROJECT = 50;
+const TOTAL_WORKERS = 50;
 const PERIOD_START = new Date(2026, 5, 1); // 1 de junio 2026
-// Prefijo de cédula por proyecto — permite identificar y limpiar este set
-// mock en reruns sin tocar trabajadores reales u otros datos mock.
+// Prefijo de cédula del set mock — permite identificar y limpiar estos
+// trabajadores en reruns sin tocar trabajadores reales u otros datos mock.
+const MOCK_DOC_PREFIX = "9900";
 const MOCK_PROJECTS = [
-  { name: "Torre Norte - Mantenimiento", docPrefix: "990100" },
-  { name: "Torre Sur - Instalaciones", docPrefix: "990200" },
+  { name: "Torre Norte - Mantenimiento" },
+  { name: "Torre Sur - Instalaciones" },
 ];
 
 const SALARY_TIERS = [1750905, 2050905, 2350905];
@@ -131,7 +134,7 @@ async function main() {
   for (const mockProject of MOCK_PROJECTS) {
     const found = (existingProjects ?? []).find((p) => p.name === mockProject.name);
     if (found) {
-      projects.push({ ...found, docPrefix: mockProject.docPrefix });
+      projects.push(found);
       continue;
     }
     console.log(`Creando proyecto mock ${mockProject.name}...`);
@@ -141,7 +144,7 @@ async function main() {
       .select("id, name")
       .single();
     if (error) throw error;
-    projects.push({ ...inserted, docPrefix: mockProject.docPrefix });
+    projects.push(inserted);
   }
   console.log(`Proyectos: ${projects.map((p) => p.name).join(", ")}`);
 
@@ -170,9 +173,8 @@ async function main() {
     .select("id, full_name, document_id");
   if (workersError) throw workersError;
 
-  const allDocPrefixes = MOCK_PROJECTS.map((p) => p.docPrefix);
   const oldMockWorkers = (existingWorkers ?? []).filter((w) =>
-    allDocPrefixes.some((prefix) => w.document_id.startsWith(prefix))
+    w.document_id.startsWith(MOCK_DOC_PREFIX)
   );
   if (oldMockWorkers.length > 0) {
     console.log(`Borrando ${oldMockWorkers.length} trabajadores mock anteriores y sus marcaciones...`);
@@ -190,66 +192,60 @@ async function main() {
     if (deleteWorkersError) throw deleteWorkersError;
   }
 
-  const workerNames = buildWorkerNames(WORKERS_PER_PROJECT);
-  const workersToInsert = [];
-  const workersByProject = new Map();
+  // Pool único: cada trabajador puede marcar en cualquiera de los proyectos
+  // mock, no está atado a uno solo (igual que en producción).
+  const workerNames = buildWorkerNames(TOTAL_WORKERS);
+  const workersToInsert = workerNames.map((name, i) => ({
+    full_name: name,
+    document_id: `${MOCK_DOC_PREFIX}${String(i + 1).padStart(6, "0")}`,
+    monthly_salary: SALARY_TIERS[i % SALARY_TIERS.length],
+  }));
 
-  for (const project of projects) {
-    const projectWorkers = workerNames.map((name, i) => ({
-      full_name: name,
-      document_id: `${project.docPrefix}${String(i + 1).padStart(5, "0")}`,
-      monthly_salary: SALARY_TIERS[i % SALARY_TIERS.length],
-    }));
-    workersToInsert.push(...projectWorkers);
-    workersByProject.set(project.id, projectWorkers.map((w) => w.document_id));
-  }
-
-  console.log(`Creando ${workersToInsert.length} trabajadores mock (${WORKERS_PER_PROJECT} por proyecto)...`);
+  console.log(`Creando ${workersToInsert.length} trabajadores mock...`);
   const { data: insertedWorkers, error: insertWorkersError } = await supabase
     .from("workers")
     .insert(workersToInsert)
     .select("id, full_name, document_id");
   if (insertWorkersError) throw insertWorkersError;
 
-  const workerByDoc = new Map(insertedWorkers.map((w) => [w.document_id, w]));
   const workdays = workdaysBetween(PERIOD_START, today);
   console.log(`Generando marcaciones para ${workdays.length} días hábiles...`);
 
   const records = [];
-  for (const project of projects) {
-    const supervisorId = signer.id;
-    const docs = workersByProject.get(project.id);
+  const supervisorId = signer.id;
 
-    for (const doc of docs) {
-      const worker = workerByDoc.get(doc);
-      for (const day of workdays) {
-        // ~6% de ausencias — no todos los días tienen marcación.
-        if (randomInt(1, 100) <= 6) continue;
+  for (const worker of insertedWorkers) {
+    for (const day of workdays) {
+      // ~6% de ausencias — no todos los días tienen marcación.
+      if (randomInt(1, 100) <= 6) continue;
 
-        const entrada = atTime(day, randomInt(6, 8), randomInt(0, 55));
-        records.push({
-          worker_id: worker.id,
-          project_id: project.id,
-          supervisor_id: supervisorId,
-          type: "entrada",
-          recorded_at: entrada.toISOString(),
-        });
+      // El proyecto se elige al azar por día: un trabajador puede pasar de
+      // un proyecto a otro entre jornadas.
+      const project = projects[randomInt(0, projects.length - 1)];
 
-        // ~2% quedan sin salida (probar "Sin Marcación" en reportes).
-        if (randomInt(1, 100) <= 2) continue;
+      const entrada = atTime(day, randomInt(6, 8), randomInt(0, 55));
+      records.push({
+        worker_id: worker.id,
+        project_id: project.id,
+        supervisor_id: supervisorId,
+        type: "entrada",
+        recorded_at: entrada.toISOString(),
+      });
 
-        const hasOvertime = randomInt(1, 100) <= 20;
-        const salidaHour = hasOvertime ? randomInt(18, 20) : randomInt(16, 17);
-        const salida = atTime(day, salidaHour, randomInt(0, 55));
-        records.push({
-          worker_id: worker.id,
-          project_id: project.id,
-          supervisor_id: supervisorId,
-          type: "salida",
-          recorded_at: salida.toISOString(),
-          observations: hasOvertime ? "Turno extendido por cierre de jornada." : null,
-        });
-      }
+      // ~2% quedan sin salida (probar "Sin Marcación" en reportes).
+      if (randomInt(1, 100) <= 2) continue;
+
+      const hasOvertime = randomInt(1, 100) <= 20;
+      const salidaHour = hasOvertime ? randomInt(18, 20) : randomInt(16, 17);
+      const salida = atTime(day, salidaHour, randomInt(0, 55));
+      records.push({
+        worker_id: worker.id,
+        project_id: project.id,
+        supervisor_id: supervisorId,
+        type: "salida",
+        recorded_at: salida.toISOString(),
+        observations: hasOvertime ? "Turno extendido por cierre de jornada." : null,
+      });
     }
   }
 
@@ -258,7 +254,7 @@ async function main() {
 
   console.log("Listo:");
   console.log(`  Proyectos: ${projects.map((p) => p.name).join(", ")}`);
-  console.log(`  Trabajadores mock: ${insertedWorkers.length} (${WORKERS_PER_PROJECT} por proyecto)`);
+  console.log(`  Trabajadores mock: ${insertedWorkers.length}`);
   console.log(`  Días hábiles cubiertos: ${workdays.length}`);
   console.log(`  Registros de asistencia creados: ${records.length}`);
 }
